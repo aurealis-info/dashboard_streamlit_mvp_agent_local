@@ -1,0 +1,14 @@
+services:
+  dashboard:
+    build: .
+    ports:
+      - "8501:8501"
+    volumes:
+      # Model weights live outside the image: governance and image size.
+      - ./models:/models
+      # Mount the real pipeline SQLite here; demo data seeds if absent.
+      - ./data:/data
+    environment:
+      GGUF_MODEL_PATH: /models/gemma-3-4b-it-Q4_K_M.gguf
+      DASHBOARD_DB_PATH: /data/dashboard.db
+    restart: unless-stopped

@@ -1,0 +1,17 @@
+[theme]
+base = "light"
+primaryColor = "#0073EA"
+backgroundColor = "#F6F7FB"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#323338"
+linkColor = "#0073EA"
+borderColor = "#D0D4E4"
+baseRadius = "8px"
+font = "Figtree, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F6F7FB"
+
+[browser]
+gatherUsageStats = false

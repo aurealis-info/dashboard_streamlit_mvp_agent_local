@@ -1,0 +1,19 @@
+# Data — never commit real company data or local SQLite files
+data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Model weights — large binaries, never in git (use download_model.py)
+models/
+*.gguf
+
+# Secrets
+.env
+.streamlit/secrets.toml
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.ruff_cache/
