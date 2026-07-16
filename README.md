@@ -1,24 +1,23 @@
-# Relay — APA Operations CRM
+# APA Tracker — project command center
 
-Relay is a frontend-first, enterprise-style workspace for managing the APA automation portfolio. It brings read-only JIRA facts, delivery health, lifecycle milestones, stakeholders, next actions, and portal-owned fields into one coherent operating view.
+APA Tracker is a frontend-first MVP for operating the APA automation portfolio. It presents the fields already defined by the JIRA semantic marts, all eight governed milestones, linked epic/story work, and portal-owned context in one dense project register.
 
-The MVP is deliberately usable before a backend exists. Demo changes persist in the browser through a versioned local overlay, while the UI and types follow the production base-plus-overlay architecture documented in [architecture_guide.md](architecture_guide.md).
+The application is intentionally useful before the Flask/BigQuery service exists. Demo writes use a versioned local browser overlay, while the shared model and repository boundary follow [architecture_guide.md](architecture_guide.md).
 
 ## What is included
 
-- A compact, explainable action queue that ranks initiatives needing attention.
-- A horizontally scrollable nine-stage metric ribbon that filters the working portfolio.
-- A dense, editable portfolio table with sticky project identity and typed cells.
-- A nine-column operating board: derived Intake plus the eight governed Assessment → Deployment milestones from the architecture guide.
-- Drag-and-drop stage movement plus an accessible stage selector for touch and keyboard users.
-- Dynamic workspace fields: text, number, date, yes/no, and controlled select.
-- Search across projects, owners, keys, next actions, tags, and custom values.
-- Health, owner, and smart-focus filters.
-- A full project drawer with milestones, working notes, JIRA epics/stories, stakeholders, and audit activity.
-- A command menu opened with `⌘K`, `Ctrl+K`, or `/`.
-- A responsive card experience for phones and compact screens.
-- Versioned local persistence and a one-click demo reset.
-- A typed repository contract ready to be implemented against Flask `/api/v1` endpoints.
+- A compact command center with a pinned project column and intentional horizontal scrolling.
+- Architecture-backed columns for root issue key, PEATS number, account, manager, quoted price, budget code, CP4 name, reporter, source, and development status.
+- Exactly eight milestone columns: Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment.
+- Sorting, text/number filters, resizing, pagination, and column movement through AG Grid Community.
+- A project drawer for source fields, linked issues, milestone updates, epic/story work, and portal-owned fields.
+- Dynamic typed columns backed by the field-definition and EAV overlay contract.
+- Search by project, issue key, PEATS number, account, manager, reporter, and linked issue.
+- A responsive application shell; the operational register remains horizontally scrollable on smaller screens.
+- Versioned local persistence, deterministic synthetic data, and a one-click reset.
+- A typed repository contract ready for Flask `/api/v1` endpoints.
+
+There is no invented health score, action queue, ninth lifecycle stage, or fake project-creation flow. Those concepts are not present in the current source contract.
 
 ## Run the MVP
 
@@ -30,9 +29,9 @@ npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173). No Python service, credentials, JIRA connection, or model download is required for the frontend demo.
+Open [http://localhost:5173](http://localhost:5173). No Python service, credentials, JIRA connection, or model download is needed for the frontend demo.
 
-The demo stores only its sample workspace state under versioned `relay.*` keys in browser local storage. Use **Reset demo data** in the sidebar to restore the shipped dataset.
+Demo state is stored under versioned `apa-tracker.*` keys in browser local storage. Use **Reset demo data** in the sidebar to restore the shipped dataset.
 
 ## Verify it
 
@@ -41,84 +40,76 @@ cd frontend
 npm run lint
 npm test
 npm run build
+npm audit
 ```
 
-The test suite covers portfolio search, typed field creation, metric-driven stage filtering, the nine-stage operating board, and new working-record creation. The production build emits static assets to `frontend/dist/`.
+The tests cover source-identifier filtering, the locked milestone contract, dynamic field creation, source-field drilldown, and manual-versus-automatic milestone editing. The production build emits static assets to `frontend/dist/`.
 
-## Product model
+## Preview in Docker
 
-Relay is not a replacement JIRA client. It composes two layers:
+The frontend includes a standalone non-root Nginx image for UI review:
 
-```mermaid
-flowchart LR
-  A["JIRA semantic marts\nread only"] --> C["Relay merged project model"]
-  B["APA portal overlay\nappend only"] --> C
-  C --> D["Smart action queue"]
-  C --> E["Portfolio table"]
-  C --> F["Lifecycle board"]
-  C --> G["Project workspace"]
+```bash
+docker build -t apa-tracker-ui frontend
+docker run --rm -p 8080:8080 apa-tracker-ui
 ```
 
-- The base layer owns JIRA-derived project, milestone, epic, and story facts.
-- The overlay owns notes, portal status, manual milestone values, next actions, and custom fields.
-- Intake is a derived frontend/read-model classification; it is not added to the milestone overlay contract. Assessment plus seven manual milestones remain the persisted lifecycle.
-- The frontend never needs to know how BigQuery rows are physically merged; it consumes one project model and field definitions.
-- Creating a UI column does not imply a BigQuery schema migration. The backend registers a typed field and appends values to the EAV overlay.
+Open [http://localhost:8080](http://localhost:8080); the health endpoint is `/health`. This preview image is not the final gateway topology. When connecting the backend, use the architecture guide’s single-service pattern: build React in a Node stage, copy `frontend/dist/` into the Flask image, and serve the API and assets from the same origin.
+
+## Field ownership
+
+| UI data | System of record | Frontend behavior |
+|---|---|---|
+| Project identity and commercial/ownership fields | `T_APA_PROJECT_CURRENT` | Read only |
+| Assessment status and duration | `T_APA_PROJECT_MILESTONE_CURRENT` | Read only |
+| Seven manual milestone statuses/dates | `APA_OVERRIDES` overlay | Editable |
+| Portal status, target date, and notes | `APA_OVERRIDES` overlay | Editable |
+| Dynamic field definitions | `APA_FIELD_DEFINITIONS` | Admin-governed creation |
+| Dynamic project values | `APA_OVERRIDES` EAV rows | Editable by registered type |
+| Project epics and stories | `T_APA_PROJECT_EPIC_STORY_CURRENT` | Read only |
+
+The guide does not define a separate PID field. The UI therefore exposes `ROOT_ISSUE_KEY` and `PEATS #` without relabeling either one. Add PID as a new source field only if the upstream mart contract confirms it is distinct.
 
 ## Frontend architecture
 
 | Path | Responsibility |
 |---|---|
-| `frontend/src/App.tsx` | Workspace orchestration, filtering, demo mutations, and view state |
-| `frontend/src/types.ts` | Domain contract shared by every frontend view |
-| `frontend/src/data.ts` | Deterministic, architecture-shaped demo records |
+| `frontend/src/App.tsx` | Workspace orchestration, filters, and local demo mutations |
+| `frontend/src/types.ts` | Merged project, milestone, issue, work, and field contracts |
+| `frontend/src/data.ts` | Deterministic architecture-shaped demo records |
 | `frontend/src/services/projectRepository.ts` | Backend-facing repository interface and canonical API paths |
 | `frontend/src/hooks/usePersistentState.ts` | Versioned, failure-tolerant demo persistence |
-| `frontend/src/components/LifecycleOverview.tsx` | Nine-stage metrics, horizontal navigation, and portfolio filtering |
-| `frontend/src/components/ActionQueue.tsx` | Explainable priority worklist |
-| `frontend/src/components/PipelineBoard.tsx` | Nine-column responsive operating board |
-| `frontend/src/components/ProjectDrawer.tsx` | Project, work, relationship, and audit detail workspace |
+| `frontend/src/components/ProjectGrid.tsx` | Enterprise project register and eight-milestone column group |
+| `frontend/src/components/ProjectDrawer.tsx` | Source, milestone, work, and portal-field detail workspace |
 | `frontend/src/components/AddFieldModal.tsx` | Typed custom-field definition workflow |
-| `frontend/src/styles.css` | Design tokens, layout system, component states, and breakpoints |
+| `frontend/src/styles.css` | Neutral design tokens, application layout, states, and breakpoints |
 
-The app uses direct component imports, deferred search rendering, memoized table rows, stable versioned storage, and containment on dense scroll surfaces. It has no UI framework or runtime icon dependency, keeping the production bundle small and the visual language fully owned by the product.
+AG Grid Community is pinned to `35.3.1`. Only the client row model, text/number filters, and pagination modules are registered; development-only validation catches missing module declarations. The Community package is MIT-licensed and supplies the mature grid behaviors this operating view needs.
 
-## Connect the Flask backend
+## Connect the Flask and BigQuery backend
 
-The detailed BigQuery, IAM, API, Cloud Run, and data-contract decisions live in [architecture_guide.md](architecture_guide.md). The shortest safe connection sequence is:
+Follow §18.1 of [architecture_guide.md](architecture_guide.md) in order:
 
-1. Implement `/api/v1/health` and verified user identity.
-2. Implement `GET /api/v1/projects` as the merged base-plus-latest-overlay read.
-3. Implement `GET` and `POST /api/v1/field-definitions`.
-4. Implement append-only project override and milestone PATCH endpoints with optimistic versions.
-5. Implement project epic/story reads.
-6. Add an `HttpProjectRepository` implementing `ProjectRepository`.
-7. Move the state-changing functions currently in `App.tsx` behind that repository, keeping optimistic UI updates and rolling back on `409` or server failure.
-8. Build the frontend and let Flask serve `frontend/dist` from the same Cloud Run service.
+1. Add the Flask factory, validated configuration, health route, request IDs, and verified local identity stub.
+2. Implement bounded, parameterized merged project reads with freshness metadata.
+3. Load field definitions and serialize values by registered type.
+4. Implement append-only overrides with authenticated audit identity and version checks.
+5. Implement manual milestone writes; reject Assessment updates.
+6. Implement bounded epic/story reads by project key.
+7. Add an HTTP implementation of `ProjectRepository`, including loading, failure, and `409` rollback UX.
+8. Build the frontend in the gateway container and let Flask serve `frontend/dist/` on the same origin.
+9. Run contract tests against dev BigQuery in an isolated override namespace before infrastructure changes.
 
-Important integration rules:
+Important rules:
 
-- Do not write to `JIRA_SEMANTIC` or any `*_CURRENT` mart.
-- Let the server set `updated_by`, `updated_at_utc`, and the next version.
-- Derive editable-field allow-lists from active field definitions on the server.
-- Validate values by registered data type before appending them.
-- Return `409 Conflict` for stale versions and include the latest server value.
-- Use IAP or approved enterprise SSO for production. The frontend must never trust a user-supplied audit identity.
+- Never write to `JIRA_SEMANTIC` or a `*_CURRENT` mart.
+- Set `updated_by`, `updated_at_utc`, and the next version on the server.
+- Derive editable-field allow-lists from active field definitions and validate by registered type.
+- Return `409 Conflict` for stale versions with the latest canonical value.
+- Use IAP or approved enterprise SSO in production; never trust a user-supplied audit identity.
 
-## Responsive behavior
+## Repository note
 
-- Wide desktop: fixed light navigation, compact action queue, nine-stage metric ribbon, and editable table.
-- Compact desktop/tablet: collapsible navigation, wrapped controls, internally scrolling dense views.
-- Phone: task-oriented initiative cards, compact filters, full-width dialogs, and horizontally navigable lifecycle lanes.
-- Reduced-motion preferences disable nonessential animation.
+The repository also contains an earlier Streamlit/SQLite prototype (`app.py`, `lib/`, and `dashboard_config.py`). It remains available for reference, and the root Docker configuration still targets it. The APA Tracker MVP is the React application in `frontend/`; its standalone Docker preview is isolated there so it does not change the legacy runtime.
 
-## Repository layout
-
-The repository also contains the earlier Streamlit/SQLite prototype (`app.py`, `lib/`, `dashboard_config.py`). It remains available for reference and local data experiments, but the product MVP is the React application in `frontend/`. The existing root Docker configuration still targets that legacy prototype; follow the single-service build plan in the architecture guide when wiring Flask and Cloud Run.
-
-## Data and security
-
-- Demo records are synthetic and safe to commit.
-- `data/`, local databases, model weights, secrets, frontend dependencies, and build outputs are ignored.
-- Real company data and credentials must never be added to the repository.
-- Production deployment requires dataset-scoped overlay write access and read-only semantic-mart access wherever the platform module supports that split.
+Demo records are synthetic and safe to commit. Real company data, credentials, model weights, dependencies, and build output remain ignored.

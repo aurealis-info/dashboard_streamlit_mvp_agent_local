@@ -1,54 +1,76 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
+import { milestoneNames } from './types'
 
-describe('Relay operations CRM', () => {
+function openProject(name = 'Invoice exception routing') {
+  fireEvent.keyDown(window, { key: 'k', ctrlKey: true })
+  const search = screen.getByPlaceholderText('Search project, issue key, PEATS, account or manager')
+  fireEvent.change(search, { target: { value: name } })
+  fireEvent.click(screen.getByRole('button', { name: new RegExp(name, 'i') }))
+  return screen.getByRole('dialog', { name })
+}
+
+describe('APA Tracker command center', () => {
   beforeEach(() => window.localStorage.clear())
   afterEach(cleanup)
 
-  it('filters the portfolio across project content', () => {
+  it('filters the register by a documented source identifier', async () => {
     render(<App />)
-    fireEvent.change(screen.getByLabelText('Search projects'), { target: { value: 'invoice' } })
-    expect(screen.getAllByText('Invoice exception routing').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Claims intake automation')).not.toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Search projects'), { target: { value: 'PEATS-10391' } })
+
+    await waitFor(() => expect(screen.getByText('1 project')).toBeInTheDocument())
   })
 
-  it('creates a typed workspace field', () => {
+  it('locks the operating lifecycle to the eight architecture milestones', () => {
+    expect(milestoneNames).toEqual([
+      'Assessment',
+      'ARP',
+      'Funding',
+      'Technical ARP',
+      'Data Eng',
+      'AA Dev',
+      'E2E Testing',
+      'Deployment',
+    ])
+    expect(milestoneNames).not.toContain('Intake')
+  })
+
+  it('creates a typed portal field without changing the source schema', () => {
     render(<App />)
-    fireEvent.click(screen.getByText('Fields'))
-    fireEvent.click(screen.getByRole('button', { name: 'Create workspace field' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add field' }))
     const dialog = screen.getByRole('dialog', { name: 'Create a field' })
     fireEvent.change(within(dialog).getByPlaceholderText('e.g. Governance decision'), { target: { value: 'Decision owner' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Create field' }))
-    expect(screen.getAllByText('Decision owner').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getByText('Custom fields'))
+
+    expect(screen.getByText('Decision owner')).toBeInTheDocument()
   })
 
-  it('switches to the nine-stage operating lifecycle board', () => {
+  it('opens a project record with architecture-backed source fields', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Board view' }))
-    const board = screen.getByLabelText('Lifecycle board')
-    expect(within(board).getAllByText('Intake').length).toBeGreaterThan(0)
-    expect(within(board).getAllByText('Assessment').length).toBeGreaterThan(0)
-    expect(within(board).getAllByText('Deployment').length).toBeGreaterThan(0)
+    const drawer = openProject()
+
+    expect(within(drawer).getByText('Root issue key')).toBeInTheDocument()
+    expect(within(drawer).getAllByText('PEATS-10391').length).toBeGreaterThan(0)
+    expect(within(drawer).getByText('Budget code')).toBeInTheDocument()
+    expect(within(drawer).getByText('CP4 name')).toBeInTheDocument()
+    expect(within(drawer).getAllByText('Quoted price').length).toBeGreaterThan(0)
   })
 
-  it('uses lifecycle metrics as an initiative filter', () => {
+  it('keeps Assessment read only while manual milestones remain editable', () => {
     render(<App />)
-    const lifecycle = screen.getByRole('group', { name: 'Development stage metrics' })
-    fireEvent.click(within(lifecycle).getByRole('button', { name: /Funding: 2 initiatives/ }))
-    expect(screen.getAllByText('Invoice exception routing').length).toBeGreaterThan(0)
-    expect(screen.queryByText('Claims intake automation')).not.toBeInTheDocument()
-  })
+    const drawer = openProject()
+    fireEvent.click(within(drawer).getByRole('tab', { name: 'Milestones · 8' }))
 
-  it('creates a new working initiative in Intake', () => {
-    render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'New initiative' }))
-    const dialog = screen.getByRole('dialog', { name: 'Add to the portfolio' })
-    fireEvent.change(within(dialog).getByPlaceholderText('e.g. Customer dispute triage'), { target: { value: 'Customer dispute triage' } })
-    fireEvent.change(within(dialog).getByPlaceholderText('Customer operations'), { target: { value: 'Service operations' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Add initiative' }))
-    const drawer = screen.getByRole('dialog', { name: 'Customer dispute triage' })
-    expect(drawer).toBeInTheDocument()
-    expect(within(drawer).getByLabelText('Current stage')).toHaveValue('Intake')
+    expect(within(drawer).queryByLabelText('Assessment status')).not.toBeInTheDocument()
+    expect(within(drawer).queryByLabelText('Assessment start date')).not.toBeInTheDocument()
+    const arpStartDate = within(drawer).getByLabelText('ARP start date')
+    fireEvent.change(arpStartDate, { target: { value: '2026-05-22' } })
+    expect(arpStartDate).toHaveValue('2026-05-22')
+    const fundingStatus = within(drawer).getByLabelText('Funding status')
+    fireEvent.change(fundingStatus, { target: { value: 'done' } })
+    expect(fundingStatus).toHaveValue('done')
+    expect(screen.getByRole('status')).toHaveTextContent('Funding updated in the demo overlay')
   })
 })

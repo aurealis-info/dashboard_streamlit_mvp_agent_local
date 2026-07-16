@@ -1,139 +1,77 @@
 import { milestoneNames } from './types'
-import type { FieldDefinition, Milestone, Project } from './types'
+import type { Epic, FieldDefinition, LinkedIssue, Milestone, Project } from './types'
 
-export const initialFields: FieldDefinition[] = [
-  { id: 'priority', label: 'Priority', type: 'enum', options: ['Critical', 'High', 'Medium', 'Low'], visible: true, active: true },
-  { id: 'sponsor', label: 'Executive sponsor', type: 'text', visible: true, active: true },
-  { id: 'governance', label: 'Governance', type: 'enum', options: ['Not started', 'In review', 'Approved'], visible: true, active: true },
-  { id: 'benefit_score', label: 'Benefit score', type: 'number', visible: false, active: true },
+export const initialFields: FieldDefinition[] = []
+
+const milestoneDates = ['2026-05-08', '2026-05-21', '2026-06-03', '2026-06-18', '2026-07-02', '2026-07-15', '2026-07-27', '2026-08-08']
+
+function milestones(activeIndex: number, blockedIndex = -1): Milestone[] {
+  return milestoneNames.map((name, index) => ({
+    name,
+    status: index === blockedIndex ? 'blocked' : index < activeIndex ? 'done' : index === activeIndex ? 'in_progress' : 'not_started',
+    startedAt: index <= activeIndex ? milestoneDates[index] : undefined,
+    completedAt: index < activeIndex ? milestoneDates[index] : undefined,
+    durationDays: index === 0 && activeIndex > 0 ? 6 : undefined,
+    automatic: index === 0,
+  }))
+}
+
+function epicIssue(key: string, summary: string, status = 'In Progress'): LinkedIssue {
+  return { key, linkType: 'implements', isEpic: true, status, summary }
+}
+
+const noCustomFields: Record<string, string | number | boolean> = {}
+
+const claimsEpics: Epic[] = [
+  { key: 'APA-E71', name: 'Document classification', progress: 78, stories: [
+    { key: 'APA-1901', name: 'Classify inbound claim documents', points: 8, status: 'Done', assignee: 'Nora Ali', sprintName: 'APA 26.14' },
+    { key: 'APA-1902', name: 'Route low-confidence documents', points: 5, status: 'In progress', assignee: 'Sam Roy', sprintName: 'APA 26.15' },
+  ] },
+  { key: 'APA-E84', name: 'Exception workbench', progress: 42, stories: [
+    { key: 'APA-1930', name: 'Review queue and ownership', points: 8, status: 'In progress', assignee: 'Leo Kim', sprintName: 'APA 26.15' },
+    { key: 'APA-1931', name: 'Audit event export', points: 3, status: 'To do', assignee: 'Maya Chen' },
+  ] },
 ]
-
-const milestones = (active: number, blocked = -1): Milestone[] => milestoneNames.map((name, index) => ({
-  name,
-  status: blocked === index ? 'blocked' : index < active ? 'done' : index === active ? 'in_progress' : 'not_started',
-  date: index < active ? ['May 08', 'May 21', 'Jun 03', 'Jun 18', 'Jul 02', 'Jul 15', 'Jul 27', 'Aug 08'][index] : undefined,
-  durationDays: index === 0 && active > 0 ? 6 : undefined,
-  automatic: index === 0,
-}))
 
 export const initialProjects: Project[] = [
   {
-    key: 'APA-1907', name: 'Contact centre knowledge triage', client: 'Customer care', owner: 'Maya Chen', ownerInitials: 'MC',
-    status: 'On track', currentMilestone: 'Intake', targetDate: '2026-12-18', progress: 3, budget: 68000,
-    notes: 'Request received from Customer Care. Confirm the accountable sponsor and expected case-volume baseline before Assessment begins.', updatedAt: '12 min ago',
-    nextAction: 'Confirm sponsor and request scope', nextActionDate: '2026-07-18', tags: ['Intake', 'Knowledge'],
-    stakeholders: [{ name: 'Maya Chen', role: 'Intake owner', initials: 'MC' }, { name: 'Iris Laurent', role: 'Proposed sponsor', initials: 'IL' }],
-    milestones: milestones(-1), custom: { priority: 'Medium', sponsor: 'Pending', governance: 'Not started', benefit_score: 62 },
-    epics: [],
+    key: 'APA-1842', name: 'Claims intake automation', sourceKey: 'APA', peatsNumber: 'PEATS-10482', reporter: 'Iris Laurent', account: 'Customer Care', budgetCode: 'CC-4260', cp4Name: 'Claims Operations', manager: 'Maya Chen', managerInitials: 'MC', quotedPrice: 184000, developmentStatus: 'AA Dev',
+    linkedIssues: [epicIssue('APA-E71', 'Document classification'), epicIssue('APA-E84', 'Exception workbench')], milestones: milestones(5), epics: claimsEpics,
+    portalStatus: '', targetDate: '2026-08-28', notes: 'Confirm the UAT data set with Customer Care before the end-to-end testing window.', updatedAt: '8 min ago', custom: noCustomFields,
   },
   {
-    key: 'APA-1908', name: 'Employee case triage', client: 'People & culture', owner: 'Leila Mora', ownerInitials: 'LM',
-    status: 'On track', currentMilestone: 'Assessment', targetDate: '2026-11-28', progress: 9, budget: 88000,
-    notes: 'Assessment is active in JIRA. The service desk sample is ready and the baseline handling-time review is underway.', updatedAt: '34 min ago',
-    nextAction: 'Complete baseline handling-time review', nextActionDate: '2026-07-21', tags: ['Assessment', 'People'],
-    stakeholders: [{ name: 'Avery Brooks', role: 'Executive sponsor', initials: 'AB' }, { name: 'Leila Mora', role: 'Program owner', initials: 'LM' }],
-    milestones: milestones(0), custom: { priority: 'Medium', sponsor: 'A. Brooks', governance: 'Not started', benefit_score: 74 },
-    epics: [],
+    key: 'APA-1816', name: 'Invoice exception routing', sourceKey: 'APA', peatsNumber: 'PEATS-10391', reporter: 'Ravi Singh', account: 'Finance Operations', budgetCode: 'FIN-2184', cp4Name: 'Invoice Operations', manager: 'Jon Bell', managerInitials: 'JB', quotedPrice: 96000, developmentStatus: 'Funding',
+    linkedIssues: [epicIssue('APA-E62', 'Exception triage', 'Blocked')], milestones: milestones(2), epics: [{ key: 'APA-E62', name: 'Exception triage', progress: 35, stories: [{ key: 'APA-1878', name: 'Detect invoice exception type', points: 8, status: 'In progress', assignee: 'Eva Tran', sprintName: 'APA 26.15' }, { key: 'APA-1879', name: 'Assign resolution team', points: 5, status: 'Blocked', assignee: 'Jon Bell' }] }],
+    portalStatus: '', targetDate: '2026-09-12', notes: 'Funding decision is scheduled for the July governance meeting.', updatedAt: '1 hr ago', custom: noCustomFields,
   },
   {
-    key: 'APA-1842', name: 'Claims intake automation', client: 'Customer care', owner: 'Maya Chen', ownerInitials: 'MC',
-    status: 'On track', currentMilestone: 'AA Dev', targetDate: '2026-08-28', progress: 68, budget: 184000,
-    notes: 'Development is tracking to plan. Confirm the UAT data set with Customer Care by Friday.', updatedAt: '8 min ago',
-    nextAction: 'Confirm the UAT data set', nextActionDate: '2026-07-17', tags: ['Automation', 'Customer'],
-    stakeholders: [{ name: 'Iris Laurent', role: 'Executive sponsor', initials: 'IL' }, { name: 'Nora Ali', role: 'Delivery lead', initials: 'NA' }],
-    milestones: milestones(5), custom: { priority: 'High', sponsor: 'I. Laurent', governance: 'Approved', benefit_score: 88 },
-    epics: [
-      { key: 'APA-E71', name: 'Document classification', progress: 78, stories: [
-        { key: 'APA-1901', name: 'Classify inbound claim documents', points: 8, status: 'Done', assignee: 'Nora Ali' },
-        { key: 'APA-1902', name: 'Route low-confidence documents', points: 5, status: 'In progress', assignee: 'Sam Roy' },
-      ]},
-      { key: 'APA-E84', name: 'Exception workbench', progress: 42, stories: [
-        { key: 'APA-1930', name: 'Review queue and ownership', points: 8, status: 'In progress', assignee: 'Leo Kim' },
-        { key: 'APA-1931', name: 'Audit event export', points: 3, status: 'To do', assignee: 'Maya Chen' },
-      ]},
-    ],
+    key: 'APA-1799', name: 'Access provisioning', sourceKey: 'APA', peatsNumber: 'PEATS-10275', reporter: 'Avery Brooks', account: 'People & Culture', budgetCode: 'PC-1172', cp4Name: 'Employee Technology', manager: 'Leila Mora', managerInitials: 'LM', quotedPrice: 128000, developmentStatus: 'Funding',
+    linkedIssues: [epicIssue('APA-E58', 'Identity workflow', 'Blocked')], milestones: milestones(2, 2), epics: [{ key: 'APA-E58', name: 'Identity workflow', progress: 20, stories: [{ key: 'APA-1822', name: 'Create joiner request', points: 5, status: 'Done', assignee: 'Leila Mora' }, { key: 'APA-1823', name: 'Provision target systems', points: 13, status: 'Blocked', assignee: 'Omar Patel' }] }],
+    portalStatus: '', targetDate: '2026-10-03', notes: 'Security architecture approval is required before Technical ARP can begin.', updatedAt: 'Yesterday', custom: noCustomFields,
   },
   {
-    key: 'APA-1816', name: 'Invoice exception routing', client: 'Finance ops', owner: 'Jon Bell', ownerInitials: 'JB',
-    status: 'At risk', currentMilestone: 'Funding', targetDate: '2026-09-12', progress: 32, budget: 96000,
-    notes: 'Funding decision moved to the July governance meeting. Scope is otherwise stable.', updatedAt: '1 hr ago',
-    nextAction: 'Secure governance funding decision', nextActionDate: '2026-07-16', tags: ['Finance', 'Governance'],
-    stakeholders: [{ name: 'Ravi Singh', role: 'Executive sponsor', initials: 'RS' }, { name: 'Jon Bell', role: 'Program owner', initials: 'JB' }],
-    milestones: milestones(2), custom: { priority: 'Critical', sponsor: 'R. Singh', governance: 'In review', benefit_score: 93 },
-    epics: [{ key: 'APA-E62', name: 'Exception triage', progress: 35, stories: [
-      { key: 'APA-1878', name: 'Detect invoice exception type', points: 8, status: 'In progress', assignee: 'Eva Tran' },
-      { key: 'APA-1879', name: 'Assign resolution team', points: 5, status: 'Blocked', assignee: 'Jon Bell' },
-    ]}],
+    key: 'APA-1774', name: 'Network change validation', sourceKey: 'APA', peatsNumber: 'PEATS-10164', reporter: 'Camille Dubois', account: 'Network', budgetCode: 'NET-8841', cp4Name: 'Network Assurance', manager: 'Omar Patel', managerInitials: 'OP', quotedPrice: 210000, developmentStatus: 'E2E Testing',
+    linkedIssues: [epicIssue('APA-E51', 'Validation orchestration')], milestones: milestones(6), epics: [{ key: 'APA-E51', name: 'Validation orchestration', progress: 86, stories: [{ key: 'APA-1780', name: 'Validate router configuration', points: 8, status: 'Done', assignee: 'Omar Patel' }, { key: 'APA-1781', name: 'Publish validation report', points: 5, status: 'In progress', assignee: 'Ava Roy', sprintName: 'APA 26.15' }] }],
+    portalStatus: '', targetDate: '2026-07-31', notes: 'E2E cycle two is active. No critical defects remain open.', updatedAt: '2 days ago', custom: noCustomFields,
   },
   {
-    key: 'APA-1799', name: 'Access provisioning', client: 'People & culture', owner: 'Leila Mora', ownerInitials: 'LM',
-    status: 'Blocked', currentMilestone: 'Funding', targetDate: '2026-10-03', progress: 24, budget: 128000,
-    notes: 'Security architecture approval is required before technical ARP can begin.', updatedAt: 'Yesterday',
-    nextAction: 'Resolve security architecture exception', nextActionDate: '2026-07-16', tags: ['Identity', 'Security'],
-    stakeholders: [{ name: 'Avery Brooks', role: 'Executive sponsor', initials: 'AB' }, { name: 'Omar Patel', role: 'Technical lead', initials: 'OP' }],
-    milestones: milestones(2, 2), custom: { priority: 'High', sponsor: 'A. Brooks', governance: 'In review', benefit_score: 76 },
-    epics: [{ key: 'APA-E58', name: 'Identity workflow', progress: 20, stories: [
-      { key: 'APA-1822', name: 'Create joiner request', points: 5, status: 'Done', assignee: 'Leila Mora' },
-      { key: 'APA-1823', name: 'Provision target systems', points: 13, status: 'Blocked', assignee: 'Omar Patel' },
-    ]}],
+    key: 'APA-1748', name: 'Retail order reconciliation', sourceKey: 'APA', peatsNumber: 'PEATS-10042', reporter: 'Morgan Foster', account: 'Retail', budgetCode: 'RTL-3091', cp4Name: 'Order Management', manager: 'Nora Ali', managerInitials: 'NA', quotedPrice: 74000, developmentStatus: 'Deployment',
+    linkedIssues: [epicIssue('APA-E47', 'Order matching', 'Done')], milestones: milestones(8), epics: [{ key: 'APA-E47', name: 'Order matching', progress: 100, stories: [{ key: 'APA-1755', name: 'Match order and payment', points: 8, status: 'Done', assignee: 'Nora Ali' }] }],
+    portalStatus: '', targetDate: '2026-06-14', notes: 'Production verification is complete.', updatedAt: 'Jun 18', custom: noCustomFields,
   },
   {
-    key: 'APA-1774', name: 'Network change validation', client: 'Network', owner: 'Omar Patel', ownerInitials: 'OP',
-    status: 'On track', currentMilestone: 'E2E Testing', targetDate: '2026-07-31', progress: 86, budget: 210000,
-    notes: 'E2E cycle two begins Wednesday. No critical defects remain open.', updatedAt: '2 days ago',
-    nextAction: 'Close cycle-two regression pack', nextActionDate: '2026-07-20', tags: ['Network', 'Quality'],
-    stakeholders: [{ name: 'Camille Dubois', role: 'Executive sponsor', initials: 'CD' }, { name: 'Ava Roy', role: 'QA lead', initials: 'AR' }],
-    milestones: milestones(6), custom: { priority: 'Medium', sponsor: 'C. Dubois', governance: 'Approved', benefit_score: 71 },
-    epics: [{ key: 'APA-E51', name: 'Validation orchestration', progress: 86, stories: [
-      { key: 'APA-1780', name: 'Validate router configuration', points: 8, status: 'Done', assignee: 'Omar Patel' },
-      { key: 'APA-1781', name: 'Publish validation report', points: 5, status: 'In progress', assignee: 'Ava Roy' },
-    ]}],
+    key: 'APA-1861', name: 'Contract renewal alerts', sourceKey: 'APA', peatsNumber: 'PEATS-10526', reporter: 'Taylor Nguyen', account: 'Enterprise Sales', budgetCode: 'SAL-5528', cp4Name: 'Retention', manager: 'Eva Tran', managerInitials: 'ET', quotedPrice: 112000, developmentStatus: 'Technical ARP',
+    linkedIssues: [epicIssue('APA-E92', 'Renewal detection')], milestones: milestones(3), epics: [{ key: 'APA-E92', name: 'Renewal detection', progress: 45, stories: [{ key: 'APA-1974', name: 'Detect expiring contracts', points: 8, status: 'In progress', assignee: 'Eva Tran', sprintName: 'APA 26.15' }] }],
+    portalStatus: '', targetDate: '2026-11-21', notes: 'Architecture package is prepared for review.', updatedAt: 'Jul 12', custom: noCustomFields,
   },
   {
-    key: 'APA-1748', name: 'Retail order reconciliation', client: 'Retail', owner: 'Nora Ali', ownerInitials: 'NA',
-    status: 'Complete', currentMilestone: 'Deployment', targetDate: '2026-06-14', progress: 100, budget: 74000,
-    notes: 'Production verification complete. Benefits tracking handed to Retail Operations.', updatedAt: 'Jun 18',
-    nextAction: 'Review 30-day benefits realization', nextActionDate: '2026-07-21', tags: ['Retail', 'Live'],
-    stakeholders: [{ name: 'Morgan Foster', role: 'Executive sponsor', initials: 'MF' }, { name: 'Nora Ali', role: 'Delivery lead', initials: 'NA' }],
-    milestones: milestones(8), custom: { priority: 'Low', sponsor: 'M. Foster', governance: 'Approved', benefit_score: 82 },
-    epics: [{ key: 'APA-E47', name: 'Order matching', progress: 100, stories: [
-      { key: 'APA-1755', name: 'Match order and payment', points: 8, status: 'Done', assignee: 'Nora Ali' },
-    ]}],
+    key: 'APA-1887', name: 'Field service dispatch', sourceKey: 'APA', peatsNumber: 'PEATS-10604', reporter: 'Dana Cole', account: 'Field Operations', budgetCode: 'FOP-6402', cp4Name: 'Dispatch', manager: 'Sam Roy', managerInitials: 'SR', quotedPrice: 156000, developmentStatus: 'ARP',
+    linkedIssues: [epicIssue('APA-E98', 'Dispatch foundation', 'To Do')], milestones: milestones(1), epics: [{ key: 'APA-E98', name: 'Dispatch foundation', progress: 12, stories: [{ key: 'APA-2011', name: 'Model technician availability', points: 8, status: 'To do', assignee: 'Sam Roy' }] }],
+    portalStatus: '', targetDate: '2026-12-05', notes: 'Discovery is complete and operations leaders have confirmed the initial scenarios.', updatedAt: 'Jul 14', custom: noCustomFields,
   },
   {
-    key: 'APA-1861', name: 'Contract renewal alerts', client: 'Enterprise sales', owner: 'Eva Tran', ownerInitials: 'ET',
-    status: 'On track', currentMilestone: 'Technical ARP', targetDate: '2026-11-21', progress: 44, budget: 112000,
-    notes: 'Architecture package is prepared for review.', updatedAt: 'Jul 12',
-    nextAction: 'Present architecture package', nextActionDate: '2026-07-22', tags: ['Sales', 'Retention'],
-    stakeholders: [{ name: 'Taylor Nguyen', role: 'Executive sponsor', initials: 'TN' }, { name: 'Eva Tran', role: 'Program owner', initials: 'ET' }],
-    milestones: milestones(3), custom: { priority: 'Medium', sponsor: 'T. Nguyen', governance: 'Approved', benefit_score: 79 },
-    epics: [{ key: 'APA-E92', name: 'Renewal detection', progress: 45, stories: [
-      { key: 'APA-1974', name: 'Detect expiring contracts', points: 8, status: 'In progress', assignee: 'Eva Tran' },
-    ]}],
-  },
-  {
-    key: 'APA-1887', name: 'Field service dispatch', client: 'Field operations', owner: 'Sam Roy', ownerInitials: 'SR',
-    status: 'On track', currentMilestone: 'ARP', targetDate: '2026-12-05', progress: 18, budget: 156000,
-    notes: 'Discovery complete. Operations leaders aligned on the initial dispatch scenarios.', updatedAt: 'Jul 14',
-    nextAction: 'Approve the target-state process map', nextActionDate: '2026-07-24', tags: ['Field ops', 'Scheduling'],
-    stakeholders: [{ name: 'Dana Cole', role: 'Executive sponsor', initials: 'DC' }, { name: 'Sam Roy', role: 'Program owner', initials: 'SR' }],
-    milestones: milestones(1), custom: { priority: 'Medium', sponsor: 'D. Cole', governance: 'Not started', benefit_score: 84 },
-    epics: [{ key: 'APA-E98', name: 'Dispatch foundation', progress: 12, stories: [
-      { key: 'APA-2011', name: 'Model technician availability', points: 8, status: 'To do', assignee: 'Sam Roy' },
-    ]}],
-  },
-  {
-    key: 'APA-1894', name: 'Fraud case enrichment', client: 'Risk & compliance', owner: 'Leo Kim', ownerInitials: 'LK',
-    status: 'At risk', currentMilestone: 'Data Eng', targetDate: '2026-09-26', progress: 53, budget: 238000,
-    notes: 'Two source systems still need approved data-sharing agreements.', updatedAt: '3 hrs ago',
-    nextAction: 'Escalate data-sharing agreement', nextActionDate: '2026-07-18', tags: ['Risk', 'Data'],
-    stakeholders: [{ name: 'Priya Rao', role: 'Executive sponsor', initials: 'PR' }, { name: 'Leo Kim', role: 'Data lead', initials: 'LK' }],
-    milestones: milestones(4), custom: { priority: 'Critical', sponsor: 'P. Rao', governance: 'Approved', benefit_score: 96 },
-    epics: [{ key: 'APA-E101', name: 'Case context service', progress: 48, stories: [
-      { key: 'APA-2032', name: 'Join customer identity signals', points: 13, status: 'In progress', assignee: 'Leo Kim' },
-      { key: 'APA-2033', name: 'Surface device risk history', points: 8, status: 'Blocked', assignee: 'Maya Chen' },
-    ]}],
+    key: 'APA-1894', name: 'Fraud case enrichment', sourceKey: 'APA', peatsNumber: 'PEATS-10641', reporter: 'Priya Rao', account: 'Risk & Compliance', budgetCode: 'RSK-7710', cp4Name: 'Fraud Operations', manager: 'Leo Kim', managerInitials: 'LK', quotedPrice: 238000, developmentStatus: 'Data Eng',
+    linkedIssues: [epicIssue('APA-E101', 'Case context service', 'Blocked')], milestones: milestones(4), epics: [{ key: 'APA-E101', name: 'Case context service', progress: 48, stories: [{ key: 'APA-2032', name: 'Join customer identity signals', points: 13, status: 'In progress', assignee: 'Leo Kim', sprintName: 'APA 26.15' }, { key: 'APA-2033', name: 'Surface device risk history', points: 8, status: 'Blocked', assignee: 'Maya Chen' }] }],
+    portalStatus: '', targetDate: '2026-09-26', notes: 'Two source systems still need approved data-sharing agreements.', updatedAt: '3 hrs ago', custom: noCustomFields,
   },
 ]
-
-export const ownerOptions = Array.from(new Set(initialProjects.map((project) => project.owner))).sort()

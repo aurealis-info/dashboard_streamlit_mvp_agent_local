@@ -1,5 +1,5 @@
 {
-  "name": "relay-apa-operations",
+  "name": "apa-tracker-frontend",
   "private": true,
   "version": "1.0.0",
   "type": "module",
@@ -14,6 +14,8 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "ag-grid-community": "35.3.1",
+    "ag-grid-react": "35.3.1",
     "react": "19.2.7",
     "react-dom": "19.2.7"
   },

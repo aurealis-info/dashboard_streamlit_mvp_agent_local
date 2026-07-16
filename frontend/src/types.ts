@@ -1,7 +1,5 @@
-export type ProjectStatus = 'On track' | 'At risk' | 'Blocked' | 'Complete'
 export type MilestoneStatus = 'done' | 'in_progress' | 'not_started' | 'blocked'
 export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'enum'
-export type ViewMode = 'table' | 'board'
 
 export const milestoneNames = [
   'Assessment',
@@ -15,11 +13,7 @@ export const milestoneNames = [
 ] as const
 
 export type MilestoneName = (typeof milestoneNames)[number]
-
-// Intake is a UI/read-model stage that precedes the eight governed milestone
-// definitions. It must not be written to the milestone overlay endpoint.
-export const developmentStages = ['Intake', ...milestoneNames] as const
-export type DevelopmentStage = (typeof developmentStages)[number]
+export type ManualMilestoneName = Exclude<MilestoneName, 'Assessment'>
 
 export interface FieldDefinition {
   id: string
@@ -33,9 +27,18 @@ export interface FieldDefinition {
 export interface Milestone {
   name: MilestoneName
   status: MilestoneStatus
-  date?: string
+  startedAt?: string
+  completedAt?: string
   durationDays?: number
-  automatic?: boolean
+  automatic: boolean
+}
+
+export interface LinkedIssue {
+  key: string
+  linkType: string
+  isEpic: boolean
+  status: string
+  summary: string
 }
 
 export interface Story {
@@ -44,6 +47,7 @@ export interface Story {
   points: number
   status: 'To do' | 'In progress' | 'Done' | 'Blocked'
   assignee: string
+  sprintName?: string
 }
 
 export interface Epic {
@@ -53,49 +57,41 @@ export interface Epic {
   stories: Story[]
 }
 
-export interface Stakeholder {
-  name: string
-  role: string
-  initials: string
-}
-
+/**
+ * Merged API read model: documented JIRA mart fields plus portal-owned fields.
+ * The backend remains responsible for keeping the base fields read-only.
+ */
 export interface Project {
   key: string
   name: string
-  client: string
-  owner: string
-  ownerInitials: string
-  status: ProjectStatus
-  currentMilestone: DevelopmentStage
-  targetDate: string
-  progress: number
-  budget: number
-  notes: string
-  updatedAt: string
-  nextAction: string
-  nextActionDate: string
-  tags: string[]
-  stakeholders: Stakeholder[]
+  sourceKey: string
+  peatsNumber: string
+  reporter: string
+  account: string
+  budgetCode: string
+  cp4Name: string
+  manager: string
+  managerInitials: string
+  quotedPrice: number
+  developmentStatus: string
+  linkedIssues: LinkedIssue[]
   milestones: Milestone[]
   epics: Epic[]
+  portalStatus: string
+  targetDate: string
+  notes: string
+  updatedAt: string
   custom: Record<string, string | number | boolean>
 }
 
 export interface ProjectUpdate {
-  status?: ProjectStatus
-  currentMilestone?: DevelopmentStage
-  progress?: number
+  portalStatus?: string
   targetDate?: string
   notes?: string
-  nextAction?: string
-  nextActionDate?: string
 }
 
-export interface NewProjectInput {
-  name: string
-  client: string
-  owner: string
-  targetDate: string
-  budget: number
-  priority: string
+export interface MilestoneUpdate {
+  status: MilestoneStatus
+  startedAt?: string
+  completedAt?: string
 }

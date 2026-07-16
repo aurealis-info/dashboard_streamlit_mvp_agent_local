@@ -5,9 +5,9 @@ interface PersistedValue<T> {
   data: T
 }
 
-// Version 2 adds the derived Intake stage and invalidates pre-lifecycle-refresh
-// demo envelopes that would otherwise render an incomplete operating view.
-const STORAGE_VERSION = 2
+// Version 3 replaces the speculative CRM model with the documented JIRA mart
+// fields and the eight governed milestones.
+const STORAGE_VERSION = 3
 
 export function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {

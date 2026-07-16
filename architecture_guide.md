@@ -68,14 +68,6 @@ Ordered milestones per project:
 | 7 | E2E Testing | manual |
 | 8 | Deployment | manual |
 
-### 3.3a Nine-stage operating view (frontend read model)
-
-The frontend presents one additional **Intake** column before Assessment so PMs can see accepted requests that still need an accountable owner and assessment start. This produces the nine-step operating view used by the command center:
-
-`Intake → Assessment → ARP → Funding → Technical ARP → Data Eng → AA Dev → E2E Testing → Deployment`
-
-Intake is deliberately a **derived presentation/read-model stage**, not a ninth milestone definition. It must not be seeded in `APA_FIELD_DEFINITIONS`, written to `APA_OVERRIDES` as a milestone, or sent to the manual milestone PATCH endpoint. The connected backend should derive it from the approved intake/request source; if that source is unavailable, omit Intake rather than manufacture overlay state. The eight milestones in §3.3 remain the locked persistence and API contract.
-
 Lifecycle:
 
 - A new project request is created and picked up → **Assessment** flips to `in progress` and the project appears on the dashboard.
@@ -399,22 +391,21 @@ flask --app app run --debug --port 8080
 - **Seed data:** insert the 8 milestone definitions into `APA_FIELD_DEFINITIONS` (Assessment `editable=false`) so the milestone UI renders on first run. A tiny `scripts/seed_field_definitions.py` (BQ `insert_rows_json`) mirrors the existing local-scaffold script style.
 - **Contract test:** before wiring UI, run the merged-read SQL (§7.3–7.5) directly against dev to confirm the marts + overlay join returns rows — the same approach used by `test_dashboard_fetch.py` to validate JIRA fetch before touching pipelines.
 
-## 17. Relay frontend reference implementation
+## 17. APA Tracker frontend reference implementation
 
 The repository now contains the production-shaped React MVP under `frontend/`. It is intentionally frontend-first: all workflows are interactive with deterministic demo data, while mutations persist to a versioned browser overlay until the Flask service is connected.
 
 ### 17.1 Delivered product surfaces
 
-- **Smart action queue:** ranks active initiatives by deterministic attention score (delivery health + registered priority, then next-action date) and exposes the reason for each recommendation. This is explainable business logic, not an opaque LLM score.
-- **Nine-stage lifecycle metrics:** a horizontally scrollable `Intake + 8 governed milestones` ribbon shows record count, committed value, attention state, and average progress per stage. Every stage is also an immediate table/board filter.
-- **Portfolio table:** merged record view with inline typed custom-field editing.
-- **Lifecycle board:** the same nine-column operating read model, with drag/drop and accessible select-based movement in the local demo. The backend repository contract continues to accept only the governed `MilestoneName` values.
-- **Project workspace:** overview, milestones, notes, project→epic→story work, stakeholders, and append-only activity.
-- **Dynamic field workflow:** creates one of the five supported field types and initializes a value for every demo project.
-- **Responsive record cards:** preserves health, owner, progress, next action, and visible workspace fields on small screens.
-- **Quick find:** searches project facts and overlay context without changing the data contract.
+- **Project command center:** one compact, horizontally scrollable operating register with the project identity pinned while users review the full record.
+- **Source-backed project columns:** root issue key, PEATS number, account, manager, quoted price, budget code, CP4 name, reporter, source key, and derived development status come from `T_APA_PROJECT_CURRENT`.
+- **Eight milestone columns:** Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment appear together in every project row. Status color is used only to encode `done`, `in_progress`, `blocked`, or `not_started`.
+- **Project workspace:** source fields, linked issues, the eight-milestone editor, project→epic→story work, and portal-owned fields are separated into focused tabs.
+- **Dynamic field workflow:** creates one of the five registered field types and immediately exposes it as an editable project column without changing a BigQuery schema.
+- **Operational controls:** source-field search, manager/account filters, column sorting/filtering/resizing, pagination, a custom-field visibility control, and keyboard quick find.
+- **Responsive shell:** navigation collapses at compact widths while the register retains intentional internal horizontal scrolling instead of collapsing source fields into decorative cards.
 
-The demo stores `projects`, `field definitions`, and the preferred view in versioned `relay.*` local-storage envelopes. This is only a local adapter. It is not intended to emulate audit identity, optimistic concurrency, or BigQuery latency.
+The demo stores `projects` and `field definitions` in versioned `apa-tracker.*` local-storage envelopes. This is only a local adapter. It is not intended to emulate audit identity, optimistic concurrency, or BigQuery latency.
 
 ### 17.2 Frontend integration boundary
 
@@ -424,15 +415,13 @@ The demo stores `projects`, `field definitions`, and the preferred view in versi
 |---|---|---|
 | Load portfolio | `GET /api/v1/projects` | Merged project base + latest project overrides |
 | Edit typed cell | `PATCH /api/v1/projects/{key}/overrides` | Append one `project` override row |
-| Change health / next action / notes | `PATCH /api/v1/projects/{key}/overrides` | Append one row per changed allow-listed field |
-| Move lifecycle card | `PATCH /api/v1/projects/{key}/milestones/{name}` | Append manual milestone status/dates |
+| Change portal status / target date / notes | `PATCH /api/v1/projects/{key}/overrides` | Append one row per changed allow-listed field |
+| Update a manual milestone | `PATCH /api/v1/projects/{key}/milestones/{name}` | Append manual milestone status/dates; reject Assessment |
 | Open project work tab | `GET /api/v1/projects/{key}/epics` | Read flattened epic/story mart, optionally merged with overlays |
 | Load column manager | `GET /api/v1/field-definitions?entity_type=project` | Read active typed registry entries |
 | Create workspace field | `POST /api/v1/field-definitions` | Append/register a new active definition |
 
-Creating a new initiative in the current demo produces a local working record. The guide intentionally defines no JIRA issue-creation endpoint; production must either remove that action, route it to the approved JIRA intake flow, or add a separately governed request-creation service. It must not silently insert a fake base-mart row.
-
-The demo starts new working records in Intake. In the connected application, Intake is a read-side classification from the approved request source. Moving a card to Intake must never call the milestone PATCH endpoint, and Assessment remains JIRA-derived and immutable from the portal.
+The guide intentionally defines no JIRA issue-creation endpoint, so the reference frontend does not manufacture local projects. A future create action must route to an approved intake service and must not insert a fake base-mart row. Assessment remains JIRA-derived and immutable from the portal.
 
 ### 17.3 Recommended API envelopes
 
@@ -455,8 +444,9 @@ Override writes should send the version last read by the client:
 {
   "version": 4,
   "fields": {
-    "priority": "Critical",
-    "next_action": "Secure governance decision"
+    "portal_status": "Governance review",
+    "target_date": "2026-09-12",
+    "notes": "Funding decision scheduled for the governance meeting."
   }
 }
 ```
@@ -467,7 +457,7 @@ Return the canonical merged project and new version after a successful append. U
 {
   "error": {
     "code": "VERSION_CONFLICT",
-    "message": "This initiative changed after you opened it.",
+    "message": "This project changed after you opened it.",
     "current_version": 5,
     "request_id": "01J..."
   }
@@ -525,8 +515,8 @@ backend/
 - **Query safety:** parameterize every natural key and filter; allow-list project/dataset/table identifiers from server configuration; enforce maximum rows and execution timeout.
 - **Observability:** log request id, route, status, authenticated actor, entity type/key, field names (not sensitive values), BigQuery job id, bytes processed, and latency.
 - **Failure UX:** preserve unsaved form input, identify the field that failed, and provide retry for transient failures. Never show a successful toast until the server returns the appended version.
-- **Accessibility:** preserve visible focus, dialog focus management, keyboard alternatives to drag/drop, and reduced-motion behavior when replacing demo handlers.
+- **Accessibility:** preserve visible focus, dialog focus management, grid keyboard navigation, and reduced-motion behavior when replacing demo handlers.
 
-### 18.3 Smart-focus evolution
+### 18.3 Derived intelligence policy
 
-Keep the shipped attention ranking deterministic for the first connected release. Compute it from registered priority, portal health, blocked work, and next-action due date, and return the contributing reasons with each score. If an LLM is later added, use it to summarize already-ranked records—not to silently decide portfolio priority. This keeps governance decisions explainable and lets the UI show why an initiative appears in the action queue.
+The first connected release should remain source-backed: do not add health, priority, attention, or risk scores until their input fields and ownership are registered in the data contract and their formula is governance-approved. If a derived ranking is added later, compute it server-side, return its contributing facts, and let the UI explain the result. An LLM may summarize those facts, but it must not silently decide portfolio priority.
