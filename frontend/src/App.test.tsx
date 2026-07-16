@@ -11,6 +11,11 @@ function openProject(name = 'Invoice exception routing') {
   return screen.getByRole('dialog', { name })
 }
 
+function chooseOption(trigger: HTMLElement, optionName: string) {
+  fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' })
+  fireEvent.click(screen.getByRole('option', { name: optionName }))
+}
+
 describe('APA Tracker project register', () => {
   beforeEach(() => window.localStorage.clear())
   afterEach(cleanup)
@@ -50,12 +55,13 @@ describe('APA Tracker project register', () => {
 
   it('exposes manual milestone dropdowns directly in the grid', async () => {
     render(<App />)
-    const arpStatus = await waitFor(() => screen.getAllByLabelText('ARP status')[0])
+    const arpStatus = await waitFor(() => screen.getAllByRole('combobox', { name: 'ARP status' })[0])
 
-    fireEvent.change(arpStatus, { target: { value: 'done' } })
+    expect(arpStatus).toHaveClass('select-menu-trigger--cell')
+    chooseOption(arpStatus, 'Blocked')
 
-    expect(arpStatus).toHaveValue('done')
-    expect(screen.getByRole('status')).toHaveTextContent('ARP saved')
+    expect(arpStatus).toHaveTextContent('Blocked')
+    expect(await screen.findByText('ARP saved')).toBeInTheDocument()
     expect(screen.queryByLabelText('Assessment status')).not.toBeInTheDocument()
   })
 
@@ -80,9 +86,9 @@ describe('APA Tracker project register', () => {
     const arpStartDate = within(drawer).getByLabelText('ARP start date')
     fireEvent.change(arpStartDate, { target: { value: '2026-05-22' } })
     expect(arpStartDate).toHaveValue('2026-05-22')
-    const fundingStatus = within(drawer).getByLabelText('Funding status')
-    fireEvent.change(fundingStatus, { target: { value: 'done' } })
-    expect(fundingStatus).toHaveValue('done')
-    expect(screen.getByRole('status')).toHaveTextContent('Funding saved')
+    const fundingStatus = within(drawer).getByRole('combobox', { name: 'Funding status' })
+    chooseOption(fundingStatus, 'Done')
+    expect(fundingStatus).toHaveTextContent('Done')
+    expect(screen.getByText('Funding saved')).toBeInTheDocument()
   })
 })

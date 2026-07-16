@@ -27,3 +27,8 @@ Object.defineProperties(HTMLElement.prototype, {
 HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
   return { x: 0, y: 0, top: 0, left: 0, right: 1280, bottom: 720, width: 1280, height: 720, toJSON: () => ({}) }
 }
+
+HTMLElement.prototype.hasPointerCapture = () => false
+HTMLElement.prototype.setPointerCapture = () => {}
+HTMLElement.prototype.releasePointerCapture = () => {}
+HTMLElement.prototype.scrollIntoView = () => {}

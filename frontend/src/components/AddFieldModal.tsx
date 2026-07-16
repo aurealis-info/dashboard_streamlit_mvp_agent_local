@@ -3,6 +3,8 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import type { FieldDefinition, FieldType } from '../types'
 import { normalizeFieldId } from '../utils'
 import { Icon } from './Icon'
+import { SelectMenu } from './SelectMenu'
+import type { SelectMenuOption } from './SelectMenu'
 
 interface AddFieldModalProps {
   open: boolean
@@ -11,12 +13,12 @@ interface AddFieldModalProps {
   onAdd: (field: FieldDefinition) => void
 }
 
-const fieldTypes: { value: FieldType; label: string; hint: string }[] = [
-  { value: 'text', label: 'Text', hint: 'Free-form text' },
-  { value: 'number', label: 'Number', hint: 'Numeric value' },
-  { value: 'date', label: 'Date', hint: 'Calendar date' },
-  { value: 'boolean', label: 'Yes / no', hint: 'Boolean choice' },
-  { value: 'enum', label: 'Dropdown', hint: 'Controlled options' },
+const fieldTypes: SelectMenuOption<FieldType>[] = [
+  { value: 'text', label: 'Text', description: 'Free-form text' },
+  { value: 'number', label: 'Number', description: 'Numeric value' },
+  { value: 'date', label: 'Date', description: 'Calendar date' },
+  { value: 'boolean', label: 'Yes / no', description: 'Boolean choice' },
+  { value: 'enum', label: 'Dropdown', description: 'Controlled options' },
 ]
 
 export function AddFieldModal({ open, existingFields, onClose, onAdd }: AddFieldModalProps) {
@@ -61,10 +63,10 @@ export function AddFieldModal({ open, existingFields, onClose, onAdd }: AddField
             <input autoFocus value={label} onChange={(event) => setLabel(event.target.value)} placeholder="e.g. Governance decision" aria-describedby="field-id-hint" />
             {duplicate ? <small className="field-error">A column with this identifier already exists.</small> : <small id="field-id-hint">Field key: <code>{id || 'column_name'}</code></small>}
           </label>
-          <label className="form-field">
+          <div className="form-field">
             <span>Data type</span>
-            <select value={type} onChange={(event) => setType(event.target.value as FieldType)}>{fieldTypes.map((item) => <option value={item.value} key={item.value}>{item.label} — {item.hint}</option>)}</select>
-          </label>
+            <SelectMenu ariaLabel="Data type" value={type} options={fieldTypes} onValueChange={setType} />
+          </div>
           {type === 'enum' ? <label className="form-field">
             <span>Dropdown options <small>comma-separated</small></span>
             <input value={options} onChange={(event) => setOptions(event.target.value)} placeholder="Option A, Option B" />

@@ -4,6 +4,8 @@ import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import type { ManualMilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
 import { formatDate, formatMoney, statusClass } from '../utils'
 import { Icon } from './Icon'
+import { SelectMenu } from './SelectMenu'
+import type { SelectMenuOption } from './SelectMenu'
 
 interface ProjectDrawerProps {
   project: Project | null
@@ -15,6 +17,11 @@ interface ProjectDrawerProps {
 type DrawerTab = 'overview' | 'milestones' | 'work' | 'portal'
 const milestoneLabel: Record<MilestoneStatus, string> = { done: 'Done', in_progress: 'In progress', not_started: 'Not started', blocked: 'Blocked' }
 const editableStatuses: MilestoneStatus[] = ['not_started', 'in_progress', 'done', 'blocked']
+const milestoneStatusOptions: SelectMenuOption<MilestoneStatus>[] = editableStatuses.map((status) => ({
+  value: status,
+  label: milestoneLabel[status],
+  tone: status,
+}))
 
 export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }: ProjectDrawerProps) {
   const [tab, setTab] = useState<DrawerTab>('overview')
@@ -81,8 +88,14 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
                 return <div className="milestone-table-row" role="row" key={milestone.name}>
                   <strong>{milestone.name}</strong>
                   {milestone.automatic
-                    ? <span className={`milestone-status ${milestone.status}`}><i />{milestoneLabel[milestone.status]}</span>
-                    : <label><span className="sr-only">{milestone.name} status</span><select value={milestone.status} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: event.target.value as MilestoneStatus, startedAt: milestone.startedAt, completedAt: milestone.completedAt })}>{editableStatuses.map((status) => <option value={status} key={status}>{milestoneLabel[status]}</option>)}</select></label>}
+                    ? <span className={`milestone-status ${milestone.status}`}><span className={`select-menu-status tone-${milestone.status}`}>{milestone.status === 'done' ? <Icon name="check" size={9} /> : null}</span>{milestoneLabel[milestone.status]}</span>
+                    : <SelectMenu
+                        ariaLabel={`${milestone.name} status`}
+                        value={milestone.status}
+                        options={milestoneStatusOptions}
+                        className="milestone-inline-select"
+                        onValueChange={(status) => onMilestoneUpdate(project.key, manualName, { status, startedAt: milestone.startedAt, completedAt: milestone.completedAt })}
+                      />}
                   {milestone.automatic
                     ? <span>{milestone.startedAt ? formatDate(milestone.startedAt) : '—'}</span>
                     : <label className="milestone-date-field"><span className="sr-only">{milestone.name} start date</span><input type="date" value={milestone.startedAt ?? ''} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: event.target.value || undefined, completedAt: milestone.completedAt })} /></label>}
@@ -104,7 +117,7 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
             <div className="section-heading"><div><span className="eyebrow">APA_PORTAL overlay</span><h3>Editable workspace context</h3></div><span className="audit-safe"><Icon name="check" size={12} />Append-only history</span></div>
             <div className="portal-form">
               <label><span>Target date</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
-              <label><span>Portal status</span>{portalStatusOptions.length ? <select value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)}><option value="">Not set</option>{portalStatusOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select> : <input value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)} placeholder="Not set" />}</label>
+              {portalStatusOptions.length ? <div className="portal-form-field"><span>Portal status</span><SelectMenu ariaLabel="Portal status" value={portalStatus} options={[{ value: '', label: 'Not set' }, ...portalStatusOptions.map((option) => ({ value: option, label: option }))]} onValueChange={setPortalStatus} /></div> : <label><span>Portal status</span><input value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)} placeholder="Not set" /></label>}
               <label className="span-two"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={7} /></label>
             </div>
             <div className="portal-form-footer"><span>Last changed {project.updatedAt}</span><button className="button primary" type="button" onClick={savePortalFields}>Save workspace fields</button></div>

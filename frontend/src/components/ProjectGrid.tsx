@@ -20,6 +20,8 @@ import { milestoneNames } from '../types'
 import type { FieldDefinition, ManualMilestoneName, MilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
 import { formatDate, formatMoney } from '../utils'
 import { Icon } from './Icon'
+import { SelectMenu } from './SelectMenu'
+import type { SelectMenuOption } from './SelectMenu'
 
 ModuleRegistry.registerModules([
   CellStyleModule,
@@ -53,6 +55,11 @@ const milestoneLabels: Record<MilestoneStatus, string> = {
   done: 'Done',
   blocked: 'Blocked',
 }
+const milestoneStatusOptions: SelectMenuOption<MilestoneStatus>[] = milestoneStatuses.map((status) => ({
+  value: status,
+  label: milestoneLabels[status],
+  tone: status,
+}))
 
 const milestoneColumnId = (name: MilestoneName) => `milestone_${name.toLowerCase().replace(/\s+/g, '_')}`
 
@@ -86,27 +93,22 @@ function MilestoneCell({ data, milestoneName, onMilestoneChange }: ICellRenderer
   if (!milestone) return null
   if (!milestone.automatic && milestoneName !== 'Assessment') {
     return (
-      <span className={`grid-milestone inline-select ${milestone.status}`}>
-        <i className="milestone-dot" />
-        <select
-          aria-label={`${milestoneName} status`}
-          value={milestone.status}
-          onClick={(event) => event.stopPropagation()}
-          onChange={(event) => onMilestoneChange(data.key, milestoneName, {
-            status: event.target.value as MilestoneStatus,
-            startedAt: milestone.startedAt,
-            completedAt: milestone.completedAt,
-          })}
-        >
-          {milestoneStatuses.map((status) => <option value={status} key={status}>{milestoneLabels[status]}</option>)}
-        </select>
-        <Icon name="down" size={11} />
-      </span>
+      <SelectMenu
+        ariaLabel={`${milestoneName} status`}
+        value={milestone.status}
+        options={milestoneStatusOptions}
+        variant="cell"
+        onValueChange={(status) => onMilestoneChange(data.key, milestoneName, {
+          status,
+          startedAt: milestone.startedAt,
+          completedAt: milestone.completedAt,
+        })}
+      />
     )
   }
   return (
     <span className={`grid-milestone ${milestone.status}`} title={`${milestoneName} is derived from JIRA`}>
-      <i className="milestone-dot" />
+      <span className={`select-menu-status tone-${milestone.status}`}>{milestone.status === 'done' ? <Icon name="check" size={9} /> : null}</span>
       <span><strong>{milestoneLabels[milestone.status]}</strong>{milestone.durationDays ? <small>{milestone.durationDays} days</small> : <small>JIRA</small>}</span>
       <Icon name="lock" size={12} />
     </span>
@@ -138,30 +140,27 @@ function CustomDropdownCell({ data, field, onFieldChange }: ICellRendererParams<
   if (!data) return null
   const options = field.type === 'boolean' ? ['Yes', 'No'] : field.options ?? []
   return (
-    <span className="custom-inline-select">
-      <select
-        aria-label={`${field.label} for ${data.name}`}
-        value={String(customFieldValue(field, data))}
-        onClick={(event) => event.stopPropagation()}
-        onChange={(event) => onFieldChange(data.key, field.id, castCustomValue(field, event.target.value))}
-      >
-        {options.map((option) => <option value={option} key={option}>{option}</option>)}
-      </select>
-      <Icon name="down" size={11} />
-    </span>
+    <SelectMenu
+      ariaLabel={`${field.label} for ${data.name}`}
+      value={String(customFieldValue(field, data))}
+      options={options.map((option) => ({ value: option, label: option }))}
+      variant="cell"
+      onValueChange={(value) => onFieldChange(data.key, field.id, castCustomValue(field, value))}
+    />
   )
 }
 
 function PortalStatusCell({ data, onProjectChange }: ICellRendererParams<Project> & { onProjectChange: ProjectGridProps['onProjectChange'] }) {
   if (!data) return null
+  const options = [{ value: '', label: 'Not set' }, ...portalStatusOptions.map((option) => ({ value: option, label: option }))]
   return (
-    <span className="custom-inline-select">
-      <select aria-label={`Portal status for ${data.name}`} value={data.portalStatus} onClick={(event) => event.stopPropagation()} onChange={(event) => onProjectChange(data.key, { portalStatus: event.target.value })}>
-        <option value="">Not set</option>
-        {portalStatusOptions.map((option) => <option value={option} key={option}>{option}</option>)}
-      </select>
-      <Icon name="down" size={11} />
-    </span>
+    <SelectMenu
+      ariaLabel={`Portal status for ${data.name}`}
+      value={data.portalStatus}
+      options={options}
+      variant="cell"
+      onValueChange={(portalStatus) => onProjectChange(data.key, { portalStatus })}
+    />
   )
 }
 

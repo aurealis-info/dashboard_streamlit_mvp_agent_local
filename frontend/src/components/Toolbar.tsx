@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { FieldDefinition } from '../types'
 import { Icon } from './Icon'
+import { SelectMenu } from './SelectMenu'
 
 interface ToolbarProps {
   search: string
@@ -43,16 +44,24 @@ export function Toolbar({ search, onSearch, manager, managers, onManager, accoun
         <Icon name="search" size={16} />
         <input value={search} onChange={(event) => onSearch(event.target.value)} placeholder="Search project, PEATS, account or manager" aria-label="Search projects" />
       </label>
-      <label className="filter-select">
-        <span>Manager</span>
-        <select value={manager} onChange={(event) => onManager(event.target.value)}><option value="All">All managers</option>{managers.map((name) => <option key={name}>{name}</option>)}</select>
-        <Icon name="down" size={13} />
-      </label>
-      <label className="filter-select">
-        <span>Account</span>
-        <select value={account} onChange={(event) => onAccount(event.target.value)}><option value="All">All accounts</option>{accounts.map((name) => <option key={name}>{name}</option>)}</select>
-        <Icon name="down" size={13} />
-      </label>
+      <SelectMenu
+        ariaLabel="Filter by manager"
+        value={manager}
+        options={[{ value: 'All', label: 'All managers' }, ...managers.map((name) => ({ value: name, label: name }))]}
+        variant="filter"
+        className="filter-select"
+        prefix="Manager"
+        onValueChange={onManager}
+      />
+      <SelectMenu
+        ariaLabel="Filter by account"
+        value={account}
+        options={[{ value: 'All', label: 'All accounts' }, ...accounts.map((name) => ({ value: name, label: name }))]}
+        variant="filter"
+        className="filter-select"
+        prefix="Account"
+        onValueChange={onAccount}
+      />
       <span className="toolbar-spacer" />
       <span className="result-count">{resultCount} {resultCount === 1 ? 'project' : 'projects'}</span>
       <div className="column-picker" ref={columnsRef}>
