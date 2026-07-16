@@ -1,5 +1,6 @@
 import { Icon } from './Icon'
 import type { IconName } from './Icon'
+import { developmentStages } from '../types'
 
 interface SidebarProps {
   open: boolean
@@ -13,7 +14,7 @@ interface SidebarProps {
 const nav: { id: string; icon: IconName; label: string; count?: number }[] = [
   { id: 'command', icon: 'grid', label: 'Command center' },
   { id: 'portfolio', icon: 'folder', label: 'Portfolio' },
-  { id: 'lifecycle', icon: 'timeline', label: 'Lifecycle', count: 2 },
+  { id: 'lifecycle', icon: 'timeline', label: 'Lifecycle', count: developmentStages.length },
   { id: 'people', icon: 'users', label: 'Stakeholders' },
   { id: 'reports', icon: 'chart', label: 'Reports' },
 ]

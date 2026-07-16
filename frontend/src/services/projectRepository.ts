@@ -8,6 +8,8 @@ export interface ProjectRepository {
   listProjects(): Promise<Project[]>
   updateProject(projectKey: string, changes: ProjectUpdate, version?: number): Promise<Project>
   updateField(projectKey: string, field: FieldDefinition, value: string | number | boolean, version?: number): Promise<Project>
+  // Deliberately excludes the derived Intake stage; this method maps to the
+  // governed manual-milestone endpoint in architecture_guide.md.
   moveProject(projectKey: string, milestone: MilestoneName, version?: number): Promise<Project>
   createProject(input: NewProjectInput): Promise<Project>
   listFieldDefinitions(): Promise<FieldDefinition[]>

@@ -12,11 +12,29 @@ const milestones = (active: number, blocked = -1): Milestone[] => milestoneNames
   name,
   status: blocked === index ? 'blocked' : index < active ? 'done' : index === active ? 'in_progress' : 'not_started',
   date: index < active ? ['May 08', 'May 21', 'Jun 03', 'Jun 18', 'Jul 02', 'Jul 15', 'Jul 27', 'Aug 08'][index] : undefined,
-  durationDays: index === 0 ? 6 : undefined,
+  durationDays: index === 0 && active > 0 ? 6 : undefined,
   automatic: index === 0,
 }))
 
 export const initialProjects: Project[] = [
+  {
+    key: 'APA-1907', name: 'Contact centre knowledge triage', client: 'Customer care', owner: 'Maya Chen', ownerInitials: 'MC',
+    status: 'On track', currentMilestone: 'Intake', targetDate: '2026-12-18', progress: 3, budget: 68000,
+    notes: 'Request received from Customer Care. Confirm the accountable sponsor and expected case-volume baseline before Assessment begins.', updatedAt: '12 min ago',
+    nextAction: 'Confirm sponsor and request scope', nextActionDate: '2026-07-18', tags: ['Intake', 'Knowledge'],
+    stakeholders: [{ name: 'Maya Chen', role: 'Intake owner', initials: 'MC' }, { name: 'Iris Laurent', role: 'Proposed sponsor', initials: 'IL' }],
+    milestones: milestones(-1), custom: { priority: 'Medium', sponsor: 'Pending', governance: 'Not started', benefit_score: 62 },
+    epics: [],
+  },
+  {
+    key: 'APA-1908', name: 'Employee case triage', client: 'People & culture', owner: 'Leila Mora', ownerInitials: 'LM',
+    status: 'On track', currentMilestone: 'Assessment', targetDate: '2026-11-28', progress: 9, budget: 88000,
+    notes: 'Assessment is active in JIRA. The service desk sample is ready and the baseline handling-time review is underway.', updatedAt: '34 min ago',
+    nextAction: 'Complete baseline handling-time review', nextActionDate: '2026-07-21', tags: ['Assessment', 'People'],
+    stakeholders: [{ name: 'Avery Brooks', role: 'Executive sponsor', initials: 'AB' }, { name: 'Leila Mora', role: 'Program owner', initials: 'LM' }],
+    milestones: milestones(0), custom: { priority: 'Medium', sponsor: 'A. Brooks', governance: 'Not started', benefit_score: 74 },
+    epics: [],
+  },
   {
     key: 'APA-1842', name: 'Claims intake automation', client: 'Customer care', owner: 'Maya Chen', ownerInitials: 'MC',
     status: 'On track', currentMilestone: 'AA Dev', targetDate: '2026-08-28', progress: 68, budget: 184000,

@@ -5,7 +5,9 @@ interface PersistedValue<T> {
   data: T
 }
 
-const STORAGE_VERSION = 1
+// Version 2 adds the derived Intake stage and invalidates pre-lifecycle-refresh
+// demo envelopes that would otherwise render an incomplete operating view.
+const STORAGE_VERSION = 2
 
 export function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {

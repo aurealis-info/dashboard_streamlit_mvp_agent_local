@@ -44,7 +44,7 @@ export function NewProjectModal({ open, owners, onClose, onCreate }: NewProjectM
           <label className="form-field"><span>Target date</span><input type="date" value={form.targetDate} onChange={(event) => setForm({ ...form, targetDate: event.target.value })} /></label>
           <label className="form-field"><span>Committed budget</span><div className="input-prefix"><span>$</span><input type="number" min="0" step="1000" value={form.budget} onChange={(event) => setForm({ ...form, budget: Number(event.target.value) })} /></div></label>
           <label className="form-field span-two"><span>Priority</span><div className="priority-options">{['Critical', 'High', 'Medium', 'Low'].map((priority) => <button type="button" className={form.priority === priority ? 'selected' : ''} onClick={() => setForm({ ...form, priority })} key={priority}>{priority}</button>)}</div></label>
-          <div className="schema-note span-two"><span className="schema-icon"><Icon name="timeline" size={16} /></span><span><strong>Starts in Assessment</strong><small>The record enters the automatic first milestone with portal status set to On track.</small></span></div>
+          <div className="schema-note span-two"><span className="schema-icon"><Icon name="timeline" size={16} /></span><span><strong>Starts in Intake</strong><small>Intake is a working-queue stage. Assessment remains automatic and JIRA-derived.</small></span></div>
         </div>
         <footer><button type="button" className="button secondary" onClick={onClose}>Cancel</button><button type="submit" className="button primary" disabled={!canSave}><Icon name="plus" size={16} />Add initiative</button></footer>
       </form>

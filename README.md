@@ -6,9 +6,10 @@ The MVP is deliberately usable before a backend exists. Demo changes persist in 
 
 ## What is included
 
-- A decision docket that ranks initiatives needing attention.
+- A compact, explainable action queue that ranks initiatives needing attention.
+- A horizontally scrollable nine-stage metric ribbon that filters the working portfolio.
 - A dense, editable portfolio table with sticky project identity and typed cells.
-- An eight-stage lifecycle board using the exact Assessment → Deployment model from the architecture guide.
+- A nine-column operating board: derived Intake plus the eight governed Assessment → Deployment milestones from the architecture guide.
 - Drag-and-drop stage movement plus an accessible stage selector for touch and keyboard users.
 - Dynamic workspace fields: text, number, date, yes/no, and controlled select.
 - Search across projects, owners, keys, next actions, tags, and custom values.
@@ -42,7 +43,7 @@ npm test
 npm run build
 ```
 
-The test suite covers portfolio search, typed field creation, the eight-stage lifecycle board, and new working-record creation. The production build emits static assets to `frontend/dist/`.
+The test suite covers portfolio search, typed field creation, metric-driven stage filtering, the nine-stage operating board, and new working-record creation. The production build emits static assets to `frontend/dist/`.
 
 ## Product model
 
@@ -52,7 +53,7 @@ Relay is not a replacement JIRA client. It composes two layers:
 flowchart LR
   A["JIRA semantic marts\nread only"] --> C["Relay merged project model"]
   B["APA portal overlay\nappend only"] --> C
-  C --> D["Decision docket"]
+  C --> D["Smart action queue"]
   C --> E["Portfolio table"]
   C --> F["Lifecycle board"]
   C --> G["Project workspace"]
@@ -60,6 +61,7 @@ flowchart LR
 
 - The base layer owns JIRA-derived project, milestone, epic, and story facts.
 - The overlay owns notes, portal status, manual milestone values, next actions, and custom fields.
+- Intake is a derived frontend/read-model classification; it is not added to the milestone overlay contract. Assessment plus seven manual milestones remain the persisted lifecycle.
 - The frontend never needs to know how BigQuery rows are physically merged; it consumes one project model and field definitions.
 - Creating a UI column does not imply a BigQuery schema migration. The backend registers a typed field and appends values to the EAV overlay.
 
@@ -72,7 +74,9 @@ flowchart LR
 | `frontend/src/data.ts` | Deterministic, architecture-shaped demo records |
 | `frontend/src/services/projectRepository.ts` | Backend-facing repository interface and canonical API paths |
 | `frontend/src/hooks/usePersistentState.ts` | Versioned, failure-tolerant demo persistence |
-| `frontend/src/components/PipelineBoard.tsx` | Eight-stage, responsive lifecycle board |
+| `frontend/src/components/LifecycleOverview.tsx` | Nine-stage metrics, horizontal navigation, and portfolio filtering |
+| `frontend/src/components/ActionQueue.tsx` | Explainable priority worklist |
+| `frontend/src/components/PipelineBoard.tsx` | Nine-column responsive operating board |
 | `frontend/src/components/ProjectDrawer.tsx` | Project, work, relationship, and audit detail workspace |
 | `frontend/src/components/AddFieldModal.tsx` | Typed custom-field definition workflow |
 | `frontend/src/styles.css` | Design tokens, layout system, component states, and breakpoints |
@@ -103,7 +107,7 @@ Important integration rules:
 
 ## Responsive behavior
 
-- Wide desktop: fixed navigation rail, full decision docket, ledger, and editable table.
+- Wide desktop: fixed light navigation, compact action queue, nine-stage metric ribbon, and editable table.
 - Compact desktop/tablet: collapsible navigation, wrapped controls, internally scrolling dense views.
 - Phone: task-oriented initiative cards, compact filters, full-width dialogs, and horizontally navigable lifecycle lanes.
 - Reduced-motion preferences disable nonessential animation.

@@ -23,21 +23,32 @@ describe('Relay operations CRM', () => {
     expect(screen.getAllByText('Decision owner').length).toBeGreaterThan(0)
   })
 
-  it('switches to the eight-stage lifecycle board', () => {
+  it('switches to the nine-stage operating lifecycle board', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'Board view' }))
     const board = screen.getByLabelText('Lifecycle board')
+    expect(within(board).getAllByText('Intake').length).toBeGreaterThan(0)
     expect(within(board).getAllByText('Assessment').length).toBeGreaterThan(0)
     expect(within(board).getAllByText('Deployment').length).toBeGreaterThan(0)
   })
 
-  it('creates a new working initiative in Assessment', () => {
+  it('uses lifecycle metrics as an initiative filter', () => {
+    render(<App />)
+    const lifecycle = screen.getByRole('group', { name: 'Development stage metrics' })
+    fireEvent.click(within(lifecycle).getByRole('button', { name: /Funding: 2 initiatives/ }))
+    expect(screen.getAllByText('Invoice exception routing').length).toBeGreaterThan(0)
+    expect(screen.queryByText('Claims intake automation')).not.toBeInTheDocument()
+  })
+
+  it('creates a new working initiative in Intake', () => {
     render(<App />)
     fireEvent.click(screen.getByRole('button', { name: 'New initiative' }))
     const dialog = screen.getByRole('dialog', { name: 'Add to the portfolio' })
     fireEvent.change(within(dialog).getByPlaceholderText('e.g. Customer dispute triage'), { target: { value: 'Customer dispute triage' } })
     fireEvent.change(within(dialog).getByPlaceholderText('Customer operations'), { target: { value: 'Service operations' } })
     fireEvent.click(within(dialog).getByRole('button', { name: 'Add initiative' }))
-    expect(screen.getByRole('dialog', { name: 'Customer dispute triage' })).toBeInTheDocument()
+    const drawer = screen.getByRole('dialog', { name: 'Customer dispute triage' })
+    expect(drawer).toBeInTheDocument()
+    expect(within(drawer).getByLabelText('Current stage')).toHaveValue('Intake')
   })
 })

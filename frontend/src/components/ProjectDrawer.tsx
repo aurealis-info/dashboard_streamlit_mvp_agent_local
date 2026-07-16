@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { milestoneNames } from '../types'
-import type { MilestoneName, Project, ProjectStatus, ProjectUpdate } from '../types'
+import { developmentStages } from '../types'
+import type { DevelopmentStage, Project, ProjectStatus, ProjectUpdate } from '../types'
 import { formatDate, formatMoney, statusClass } from '../utils'
 import { Icon } from './Icon'
 
@@ -39,7 +39,7 @@ export function ProjectDrawer({ project, onClose, onUpdate }: ProjectDrawerProps
           <h2 id="project-title">{project.name}</h2>
           <div className="record-controls">
             <label className={`status-control ${statusClass(project.status)}`}><span className="sr-only">Health status</span><i /><select value={project.status} onChange={(event) => onUpdate(project.key, { status: event.target.value as ProjectStatus })}>{statuses.map((status) => <option key={status}>{status}</option>)}</select><Icon name="down" size={12} /></label>
-            <label className="stage-control"><Icon name="timeline" size={14} /><span className="sr-only">Current stage</span><select value={project.currentMilestone} onChange={(event) => onUpdate(project.key, { currentMilestone: event.target.value as MilestoneName })}>{milestoneNames.map((milestone) => <option key={milestone}>{milestone}</option>)}</select><Icon name="down" size={12} /></label>
+            <label className="stage-control"><Icon name="timeline" size={14} /><span className="sr-only">Current stage</span><select value={project.currentMilestone} onChange={(event) => onUpdate(project.key, { currentMilestone: event.target.value as DevelopmentStage })}>{developmentStages.map((milestone) => <option key={milestone}>{milestone}</option>)}</select><Icon name="down" size={12} /></label>
           </div>
           <div className="record-progress"><span><i style={{ width: `${project.progress}%` }} /></span><strong>{project.progress}%</strong><small>overall delivery</small></div>
         </header>

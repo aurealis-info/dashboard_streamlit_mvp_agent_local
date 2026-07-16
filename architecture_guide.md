@@ -68,6 +68,14 @@ Ordered milestones per project:
 | 7 | E2E Testing | manual |
 | 8 | Deployment | manual |
 
+### 3.3a Nine-stage operating view (frontend read model)
+
+The frontend presents one additional **Intake** column before Assessment so PMs can see accepted requests that still need an accountable owner and assessment start. This produces the nine-step operating view used by the command center:
+
+`Intake → Assessment → ARP → Funding → Technical ARP → Data Eng → AA Dev → E2E Testing → Deployment`
+
+Intake is deliberately a **derived presentation/read-model stage**, not a ninth milestone definition. It must not be seeded in `APA_FIELD_DEFINITIONS`, written to `APA_OVERRIDES` as a milestone, or sent to the manual milestone PATCH endpoint. The connected backend should derive it from the approved intake/request source; if that source is unavailable, omit Intake rather than manufacture overlay state. The eight milestones in §3.3 remain the locked persistence and API contract.
+
 Lifecycle:
 
 - A new project request is created and picked up → **Assessment** flips to `in progress` and the project appears on the dashboard.
@@ -397,9 +405,10 @@ The repository now contains the production-shaped React MVP under `frontend/`. I
 
 ### 17.1 Delivered product surfaces
 
-- **Decision docket:** ranks active initiatives by deterministic attention score (delivery health + registered priority, then next-action date). This is explainable business logic, not an opaque LLM score.
+- **Smart action queue:** ranks active initiatives by deterministic attention score (delivery health + registered priority, then next-action date) and exposes the reason for each recommendation. This is explainable business logic, not an opaque LLM score.
+- **Nine-stage lifecycle metrics:** a horizontally scrollable `Intake + 8 governed milestones` ribbon shows record count, committed value, attention state, and average progress per stage. Every stage is also an immediate table/board filter.
 - **Portfolio table:** merged record view with inline typed custom-field editing.
-- **Lifecycle board:** the eight locked milestones from §3.3, with drag/drop and accessible select-based movement.
+- **Lifecycle board:** the same nine-column operating read model, with drag/drop and accessible select-based movement in the local demo. The backend repository contract continues to accept only the governed `MilestoneName` values.
 - **Project workspace:** overview, milestones, notes, project→epic→story work, stakeholders, and append-only activity.
 - **Dynamic field workflow:** creates one of the five supported field types and initializes a value for every demo project.
 - **Responsive record cards:** preserves health, owner, progress, next action, and visible workspace fields on small screens.
@@ -422,6 +431,8 @@ The demo stores `projects`, `field definitions`, and the preferred view in versi
 | Create workspace field | `POST /api/v1/field-definitions` | Append/register a new active definition |
 
 Creating a new initiative in the current demo produces a local working record. The guide intentionally defines no JIRA issue-creation endpoint; production must either remove that action, route it to the approved JIRA intake flow, or add a separately governed request-creation service. It must not silently insert a fake base-mart row.
+
+The demo starts new working records in Intake. In the connected application, Intake is a read-side classification from the approved request source. Moving a card to Intake must never call the milestone PATCH endpoint, and Assessment remains JIRA-derived and immutable from the portal.
 
 ### 17.3 Recommended API envelopes
 
@@ -518,4 +529,4 @@ backend/
 
 ### 18.3 Smart-focus evolution
 
-Keep the shipped attention ranking deterministic for the first connected release. Compute it from registered priority, portal health, blocked work, and next-action due date, and return the contributing reasons with each score. If an LLM is later added, use it to summarize already-ranked records—not to silently decide portfolio priority. This keeps governance decisions explainable and lets the UI show why an initiative appears in the docket.
+Keep the shipped attention ranking deterministic for the first connected release. Compute it from registered priority, portal health, blocked work, and next-action due date, and return the contributing reasons with each score. If an LLM is later added, use it to summarize already-ranked records—not to silently decide portfolio priority. This keeps governance decisions explainable and lets the UI show why an initiative appears in the action queue.

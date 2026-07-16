@@ -16,6 +16,11 @@ export const milestoneNames = [
 
 export type MilestoneName = (typeof milestoneNames)[number]
 
+// Intake is a UI/read-model stage that precedes the eight governed milestone
+// definitions. It must not be written to the milestone overlay endpoint.
+export const developmentStages = ['Intake', ...milestoneNames] as const
+export type DevelopmentStage = (typeof developmentStages)[number]
+
 export interface FieldDefinition {
   id: string
   label: string
@@ -61,7 +66,7 @@ export interface Project {
   owner: string
   ownerInitials: string
   status: ProjectStatus
-  currentMilestone: MilestoneName
+  currentMilestone: DevelopmentStage
   targetDate: string
   progress: number
   budget: number
@@ -78,7 +83,7 @@ export interface Project {
 
 export interface ProjectUpdate {
   status?: ProjectStatus
-  currentMilestone?: MilestoneName
+  currentMilestone?: DevelopmentStage
   progress?: number
   targetDate?: string
   notes?: string
