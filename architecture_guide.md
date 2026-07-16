@@ -390,3 +390,132 @@ flask --app app run --debug --port 8080
 - **Auth gate locally:** stub the identity header/email gate (e.g. `LOCAL_USER_EMAIL`) so `updated_by` is populated without standing up IAP/SSO; keep the real gate behind an env flag.
 - **Seed data:** insert the 8 milestone definitions into `APA_FIELD_DEFINITIONS` (Assessment `editable=false`) so the milestone UI renders on first run. A tiny `scripts/seed_field_definitions.py` (BQ `insert_rows_json`) mirrors the existing local-scaffold script style.
 - **Contract test:** before wiring UI, run the merged-read SQL (§7.3–7.5) directly against dev to confirm the marts + overlay join returns rows — the same approach used by `test_dashboard_fetch.py` to validate JIRA fetch before touching pipelines.
+
+## 17. Relay frontend reference implementation
+
+The repository now contains the production-shaped React MVP under `frontend/`. It is intentionally frontend-first: all workflows are interactive with deterministic demo data, while mutations persist to a versioned browser overlay until the Flask service is connected.
+
+### 17.1 Delivered product surfaces
+
+- **Decision docket:** ranks active initiatives by deterministic attention score (delivery health + registered priority, then next-action date). This is explainable business logic, not an opaque LLM score.
+- **Portfolio table:** merged record view with inline typed custom-field editing.
+- **Lifecycle board:** the eight locked milestones from §3.3, with drag/drop and accessible select-based movement.
+- **Project workspace:** overview, milestones, notes, project→epic→story work, stakeholders, and append-only activity.
+- **Dynamic field workflow:** creates one of the five supported field types and initializes a value for every demo project.
+- **Responsive record cards:** preserves health, owner, progress, next action, and visible workspace fields on small screens.
+- **Quick find:** searches project facts and overlay context without changing the data contract.
+
+The demo stores `projects`, `field definitions`, and the preferred view in versioned `relay.*` local-storage envelopes. This is only a local adapter. It is not intended to emulate audit identity, optimistic concurrency, or BigQuery latency.
+
+### 17.2 Frontend integration boundary
+
+`frontend/src/services/projectRepository.ts` defines the backend-facing `ProjectRepository` contract and canonical API paths. The MVP currently keeps mutation handlers in `App.tsx` so it runs with zero infrastructure. When connecting Flask, implement an HTTP repository and move those handlers behind it; component props and the shared `Project` model do not need to change.
+
+| UI operation | API call | Overlay entity / registry effect |
+|---|---|---|
+| Load portfolio | `GET /api/v1/projects` | Merged project base + latest project overrides |
+| Edit typed cell | `PATCH /api/v1/projects/{key}/overrides` | Append one `project` override row |
+| Change health / next action / notes | `PATCH /api/v1/projects/{key}/overrides` | Append one row per changed allow-listed field |
+| Move lifecycle card | `PATCH /api/v1/projects/{key}/milestones/{name}` | Append manual milestone status/dates |
+| Open project work tab | `GET /api/v1/projects/{key}/epics` | Read flattened epic/story mart, optionally merged with overlays |
+| Load column manager | `GET /api/v1/field-definitions?entity_type=project` | Read active typed registry entries |
+| Create workspace field | `POST /api/v1/field-definitions` | Append/register a new active definition |
+
+Creating a new initiative in the current demo produces a local working record. The guide intentionally defines no JIRA issue-creation endpoint; production must either remove that action, route it to the approved JIRA intake flow, or add a separately governed request-creation service. It must not silently insert a fake base-mart row.
+
+### 17.3 Recommended API envelopes
+
+Use a stable envelope so pagination, freshness, and request tracing do not become breaking changes:
+
+```json
+{
+  "items": [],
+  "page": 1,
+  "page_size": 50,
+  "total": 0,
+  "as_of_utc": "2026-07-16T10:42:00Z",
+  "request_id": "01J..."
+}
+```
+
+Override writes should send the version last read by the client:
+
+```json
+{
+  "version": 4,
+  "fields": {
+    "priority": "Critical",
+    "next_action": "Secure governance decision"
+  }
+}
+```
+
+Return the canonical merged project and new version after a successful append. Use one error shape everywhere:
+
+```json
+{
+  "error": {
+    "code": "VERSION_CONFLICT",
+    "message": "This initiative changed after you opened it.",
+    "current_version": 5,
+    "request_id": "01J..."
+  }
+}
+```
+
+Recommended status codes: `400` invalid payload, `401` unauthenticated, `403` field/action not allowed, `404` unknown natural key, `409` stale version or duplicate field identifier, `422` registered-type validation failure, and `503` bounded upstream/BigQuery unavailability.
+
+## 18. Flask implementation blueprint
+
+Keep transport, domain validation, and BigQuery access separate. A practical package layout is:
+
+```text
+backend/
+  app/
+    __init__.py              # Flask factory, config, error mapping
+    auth.py                  # verified IAP/SSO identity only
+    api/
+      health.py
+      projects.py
+      milestones.py
+      field_definitions.py
+    services/
+      project_service.py     # merge/use-case orchestration
+      validation.py          # registry-driven casting + allow-list
+    repositories/
+      marts.py               # parameterized read-only queries
+      overrides.py           # append rows + current-version reads
+      field_definitions.py
+    observability.py         # request ids, structured JSON logs
+  tests/
+    contract/
+    unit/
+```
+
+### 18.1 Connection order
+
+1. Add the Flask factory, configuration validation, `/api/v1/health`, request ids, and verified local identity stub.
+2. Implement parameterized merged project reads with a strict page-size cap and freshness metadata.
+3. Implement field-definition reads and registry-driven serialization.
+4. Implement append-only overrides with server timestamps, authenticated `updated_by`, and version-conflict checks.
+5. Implement manual milestone writes; keep Assessment immutable and sourced from the mart.
+6. Implement epic/story reads and bounded project-key filters.
+7. Add the frontend HTTP repository, loading/error states, optimistic updates, and rollback on failure.
+8. Build React in the container build stage and serve `frontend/dist` from Flask on the same origin. Disable production CORS because no cross-origin client is required.
+9. Run contract tests against dev BigQuery using an isolated namespace before requesting Cloud Run/IAM changes.
+
+### 18.2 Production gates
+
+- **Identity:** IAP or approved enterprise SSO is the production default. A self-entered email must never be trusted for `updated_by`; the shared-password pattern is acceptable only as an explicitly time-bounded internal pilot exception.
+- **Authorization:** distinguish field-definition administration from ordinary value editing. Enforce it server-side, never through hidden UI alone.
+- **Concurrency:** compare the client version with the latest key-tuple version inside the write workflow. Return `409` with the canonical current value on mismatch.
+- **Idempotency:** accept an `Idempotency-Key` on POST/PATCH and retain a short-lived result record so browser retries cannot append duplicate audit rows.
+- **Validation:** normalize field identifiers once, reject reserved names, cap label/value/option lengths, and require at least two unique enum options.
+- **Query safety:** parameterize every natural key and filter; allow-list project/dataset/table identifiers from server configuration; enforce maximum rows and execution timeout.
+- **Observability:** log request id, route, status, authenticated actor, entity type/key, field names (not sensitive values), BigQuery job id, bytes processed, and latency.
+- **Failure UX:** preserve unsaved form input, identify the field that failed, and provide retry for transient failures. Never show a successful toast until the server returns the appended version.
+- **Accessibility:** preserve visible focus, dialog focus management, keyboard alternatives to drag/drop, and reduced-motion behavior when replacing demo handlers.
+
+### 18.3 Smart-focus evolution
+
+Keep the shipped attention ranking deterministic for the first connected release. Compute it from registered priority, portal health, blocked work, and next-action due date, and return the contributing reasons with each score. If an LLM is later added, use it to summarize already-ranked records—not to silently decide portfolio priority. This keeps governance decisions explainable and lets the UI show why an initiative appears in the docket.
