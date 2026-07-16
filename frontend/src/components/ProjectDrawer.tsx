@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { portalStatusOptions } from '../config/workspaceFieldPolicy'
+import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
 import type { ManualMilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
 import { formatDate, formatMoney, statusClass } from '../utils'
 import { Icon } from './Icon'
@@ -19,6 +21,7 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
   const [notes, setNotes] = useState(project?.notes ?? '')
   const [targetDate, setTargetDate] = useState(project?.targetDate ?? '')
   const [portalStatus, setPortalStatus] = useState(project?.portalStatus ?? '')
+  useBodyScrollLock(Boolean(project))
 
   useEffect(() => {
     if (!project) return
@@ -44,7 +47,7 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
           <div className="drawer-summary"><span><small>Account</small><strong>{project.account}</strong></span><span><small>Manager</small><strong>{project.manager}</strong></span><span><small>Quoted price</small><strong>{formatMoney(project.quotedPrice)}</strong></span><span><small>Development status</small><strong>{project.developmentStatus}</strong></span></div>
         </header>
         <div className="tabs" role="tablist" aria-label="Project details">
-          {([['overview', 'Overview'], ['milestones', 'Milestones · 8'], ['work', `Epics & stories · ${storyCount}`], ['portal', 'Portal fields']] as [DrawerTab, string][]).map(([value, label]) => <button role="tab" aria-selected={tab === value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)} key={value}>{label}</button>)}
+          {([['overview', 'Overview'], ['milestones', 'Milestones · 8'], ['work', `Epics & stories · ${storyCount}`], ['portal', 'Workspace fields']] as [DrawerTab, string][]).map(([value, label]) => <button role="tab" aria-selected={tab === value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)} key={value}>{label}</button>)}
         </div>
         <div className="drawer-body">
           {tab === 'overview' ? <>
@@ -98,13 +101,13 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
           </section> : null}
 
           {tab === 'portal' ? <section className="record-section portal-fields-section">
-            <div className="section-heading"><div><span className="eyebrow">APA_PORTAL overlay</span><h3>Editable project context</h3></div><span className="audit-safe"><Icon name="check" size={12} />Append-only history</span></div>
+            <div className="section-heading"><div><span className="eyebrow">APA_PORTAL overlay</span><h3>Editable workspace context</h3></div><span className="audit-safe"><Icon name="check" size={12} />Append-only history</span></div>
             <div className="portal-form">
               <label><span>Target date</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
-              <label><span>Portal status</span><input value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)} placeholder="Not set" /></label>
+              <label><span>Portal status</span>{portalStatusOptions.length ? <select value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)}><option value="">Not set</option>{portalStatusOptions.map((option) => <option value={option} key={option}>{option}</option>)}</select> : <input value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)} placeholder="Not set" />}</label>
               <label className="span-two"><span>Notes</span><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={7} /></label>
             </div>
-            <div className="portal-form-footer"><span>Last changed {project.updatedAt}</span><button className="button primary" type="button" onClick={savePortalFields}>Save portal fields</button></div>
+            <div className="portal-form-footer"><span>Last changed {project.updatedAt}</span><button className="button primary" type="button" onClick={savePortalFields}>Save workspace fields</button></div>
           </section> : null}
         </div>
       </aside>

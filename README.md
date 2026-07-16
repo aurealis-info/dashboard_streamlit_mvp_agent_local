@@ -1,16 +1,17 @@
-# APA Tracker — project command center
+# APA Tracker — enterprise project register
 
-APA Tracker is a frontend-first MVP for operating the APA automation portfolio. It presents the fields already defined by the JIRA semantic marts, all eight governed milestones, linked epic/story work, and portal-owned context in one dense project register.
+APA Tracker is a frontend-first MVP for operating the APA automation portfolio. It presents the fields already defined by the JIRA semantic marts, all eight governed milestones, linked epic/story work, and workspace-owned context in one dense project register.
 
 The application is intentionally useful before the Flask/BigQuery service exists. Demo writes use a versioned local browser overlay, while the shared model and repository boundary follow [architecture_guide.md](architecture_guide.md).
 
 ## What is included
 
-- A compact command center with a pinned project column and intentional horizontal scrolling.
+- A governed project register with a pinned identity column and intentional horizontal scrolling.
 - Architecture-backed columns for root issue key, PEATS number, account, manager, quoted price, budget code, CP4 name, reporter, source, and development status.
 - Exactly eight milestone columns: Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment.
 - Sorting, text/number filters, resizing, pagination, and column movement through AG Grid Community.
-- A project drawer for source fields, linked issues, milestone updates, epic/story work, and portal-owned fields.
+- A project drawer for source fields, linked issues, milestone updates, epic/story work, and workspace-owned fields.
+- First-click milestone dropdowns plus typed spreadsheet editors for every workspace-owned grid field.
 - Dynamic typed columns backed by the field-definition and EAV overlay contract.
 - Search by project, issue key, PEATS number, account, manager, reporter, and linked issue.
 - A responsive application shell; the operational register remains horizontally scrollable on smaller screens.
@@ -43,7 +44,7 @@ npm run build
 npm audit
 ```
 
-The tests cover source-identifier filtering, the locked milestone contract, dynamic field creation, source-field drilldown, and manual-versus-automatic milestone editing. The production build emits static assets to `frontend/dist/`.
+The tests cover source-identifier filtering, the locked milestone contract, dynamic field creation, direct grid dropdown editing, source-field drilldown, and manual-versus-automatic milestone editing. The production build emits static assets to `frontend/dist/`.
 
 ## Preview in Docker
 
@@ -79,12 +80,13 @@ The guide does not define a separate PID field. The UI therefore exposes `ROOT_I
 | `frontend/src/data.ts` | Deterministic architecture-shaped demo records |
 | `frontend/src/services/projectRepository.ts` | Backend-facing repository interface and canonical API paths |
 | `frontend/src/hooks/usePersistentState.ts` | Versioned, failure-tolerant demo persistence |
+| `frontend/src/config/workspaceFieldPolicy.ts` | Organization-approved portal-status dropdown vocabulary |
 | `frontend/src/components/ProjectGrid.tsx` | Enterprise project register and eight-milestone column group |
-| `frontend/src/components/ProjectDrawer.tsx` | Source, milestone, work, and portal-field detail workspace |
+| `frontend/src/components/ProjectDrawer.tsx` | Source, milestone, work, and workspace-field detail view |
 | `frontend/src/components/AddFieldModal.tsx` | Typed custom-field definition workflow |
 | `frontend/src/styles.css` | Neutral design tokens, application layout, states, and breakpoints |
 
-AG Grid Community is pinned to `35.3.1`. Only the client row model, text/number filters, and pagination modules are registered; development-only validation catches missing module declarations. The Community package is MIT-licensed and supplies the mature grid behaviors this operating view needs.
+AG Grid Community is pinned to `35.3.1`. Only the client row model, typed cell editors, text/number filters, tooltips, and pagination modules are registered; development-only validation catches missing module declarations. The Community package is MIT-licensed and supplies the mature grid behaviors this operating view needs.
 
 ## Connect the Flask and BigQuery backend
 

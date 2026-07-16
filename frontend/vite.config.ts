@@ -4,10 +4,10 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   build: {
-    // The data grid is the command center's primary control, so deferring it
+    // The data grid is the project register's primary control, so deferring it
     // would only delay first utility. Keep a tight ceiling above the modular
-    // AG Grid entry chunk (about 1.05 MB raw / 300 KB gzip).
-    chunkSizeWarningLimit: 1100,
+    // AG Grid entry chunk (about 1.12 MB raw / 320 KB gzip).
+    chunkSizeWarningLimit: 1150,
   },
   server: {
     port: 5173,

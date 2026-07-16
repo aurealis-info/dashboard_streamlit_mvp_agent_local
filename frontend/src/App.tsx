@@ -22,7 +22,6 @@ function App() {
   const [fieldModal, setFieldModal] = useState(false)
   const [commandOpen, setCommandOpen] = useState(false)
   const [navOpen, setNavOpen] = useState(false)
-  const [activeNav, setActiveNav] = useState('command')
   const [toast, setToast] = useState<string | null>(null)
   const toastTimer = useRef<number | null>(null)
   const deferredSearch = useDeferredValue(search)
@@ -61,7 +60,7 @@ function App() {
 
   const changeField = (key: string, fieldId: string, value: string | number | boolean) => {
     setProjects((current) => current.map((project) => project.key === key ? { ...project, custom: { ...project.custom, [fieldId]: value }, updatedAt: 'Just now' } : project))
-    notify('Portal field saved in the demo overlay')
+    notify('Workspace value saved')
   }
 
   const addField = (field: FieldDefinition) => {
@@ -76,7 +75,7 @@ function App() {
 
   const updateProject = (key: string, update: ProjectUpdate) => {
     setProjects((current) => current.map((project) => project.key === key ? { ...project, ...update, updatedAt: 'Just now' } : project))
-    notify('Portal-owned project fields saved')
+    notify('Workspace fields saved')
   }
 
   const updateMilestone = (key: string, milestoneName: ManualMilestoneName, update: MilestoneUpdate) => {
@@ -85,14 +84,7 @@ function App() {
       milestones: project.milestones.map((milestone) => milestone.name === milestoneName ? { ...milestone, ...update } : milestone),
       updatedAt: 'Just now',
     } : project))
-    notify(`${milestoneName} updated in the demo overlay`)
-  }
-
-  const navigate = (destination: string) => {
-    if (destination === 'fields') { setFieldModal(true); return }
-    if (destination === 'resources') { notify('Resource records connect through T_APA_RESOURCE_ISSUE_CURRENT in the backend phase'); return }
-    setActiveNav(destination)
-    document.querySelector('.records-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    notify(`${milestoneName} saved`)
   }
 
   const clearFilters = () => { setSearch(''); setManager('All'); setAccount('All') }
@@ -103,30 +95,29 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar open={navOpen} active={activeNav} projectCount={projects.length} onClose={() => setNavOpen(false)} onNavigate={navigate} onOpenCommand={() => setCommandOpen(true)} onReset={resetDemo} />
+      <Sidebar open={navOpen} projectCount={projects.length} onClose={() => setNavOpen(false)} onReset={resetDemo} />
       <main className="main-content">
         <header className="topbar">
           <button className="mobile-menu icon-button" onClick={() => setNavOpen(true)} aria-label="Open navigation"><Icon name="menu" /></button>
-          <div className="breadcrumb"><span>APA Tracker</span><Icon name="chevron" size={12} /><strong>Command center</strong></div>
+          <div className="breadcrumb"><span>APA Tracker</span><Icon name="chevron" size={12} /><strong>Projects</strong></div>
           <div className="top-actions"><button className="top-search" type="button" onClick={() => setCommandOpen(true)}><Icon name="search" size={15} />Find a project<kbd>⌘K</kbd></button><span className="environment"><span className="live-dot" />Demo data</span></div>
         </header>
         <div className="workspace">
-          <section className="page-heading" aria-labelledby="page-title">
-            <div><span className="section-kicker">APA project register</span><h1 id="page-title">Project command center</h1><p>Review JIRA project fields, all eight milestone states, linked work, and portal-owned context in one working view.</p></div>
-            <button className="button primary" type="button" onClick={() => setFieldModal(true)}><Icon name="plus" size={15} />Add custom field</button>
+          <section className="workspace-heading" aria-labelledby="page-title">
+            <div><span className="section-kicker">APA operations</span><h1 id="page-title">Project register</h1><p>Manage every project across the eight architecture milestones, with JIRA facts and workspace edits in one view.</p></div>
+            <div className="ownership-guide" aria-label="Field ownership"><span className="source"><Icon name="lock" size={13} />JIRA source</span><span className="editable"><Icon name="edit" size={13} />Workspace editable</span></div>
           </section>
-          <section className="source-bar" aria-label="Project data sources"><span><strong>{projects.length}</strong> projects</span><span><strong>Base</strong> JIRA semantic marts</span><span><strong>Milestones</strong> 1 JIRA-derived · 7 portal-managed</span><span><strong>Refresh</strong> Daily snapshot</span></section>
           <section className="records-panel" aria-labelledby="projects-title">
-            <header className="records-heading"><div><h2 id="projects-title">Projects</h2><p>Sort, filter, resize, and horizontally scroll through the complete project record.</p></div><span className="read-only-label">Base fields are read only</span></header>
+            <header className="records-heading"><div><h2 id="projects-title">All projects</h2><p>Assessment comes from JIRA; the next seven milestone cells and workspace columns edit in place.</p></div><span className="editing-hint"><Icon name="edit" size={13} />Click editable cells to update</span></header>
             <Toolbar search={search} onSearch={setSearch} manager={manager} managers={managers} onManager={setManager} account={account} accounts={accounts} onAccount={setAccount} fields={fields} onFieldVisibility={setFieldVisibility} onAddField={() => setFieldModal(true)} resultCount={filteredProjects.length} />
-            {filteredProjects.length ? <ProjectGrid projects={filteredProjects} fields={visibleFields} onSelect={(project) => setSelectedKey(project.key)} onFieldChange={changeField} /> : <div className="empty-state"><Icon name="search" /><h3>No projects match these filters</h3><p>Clear the search, account, or manager filter.</p><button className="button secondary" type="button" onClick={clearFilters}>Clear filters</button></div>}
-            <footer className="records-footer"><div className="milestone-legend"><span><i className="done"><Icon name="check" size={10} /></i>Done</span><span><i className="in-progress"><b /></i>In progress</span><span><i className="blocked"><Icon name="warning" size={10} /></i>Blocked</span><span><i>—</i>Not started</span></div><span>Assessment is read-only from JIRA; manual milestones write to the portal overlay.</span></footer>
+            {filteredProjects.length ? <ProjectGrid projects={filteredProjects} fields={visibleFields} onSelect={(project) => setSelectedKey(project.key)} onProjectChange={updateProject} onMilestoneChange={updateMilestone} onFieldChange={changeField} /> : <div className="empty-state"><Icon name="search" /><h3>No projects match these filters</h3><p>Clear the search, account, or manager filter.</p><button className="button secondary" type="button" onClick={clearFilters}>Clear filters</button></div>}
+            <footer className="records-footer"><span><Icon name="edit" size={13} />Workspace edits save immediately to the demo overlay.</span><span>Scroll horizontally for all lifecycle and JIRA detail columns.</span></footer>
           </section>
         </div>
       </main>
       <ProjectDrawer key={selectedProject?.key ?? 'closed'} project={selectedProject} onClose={() => setSelectedKey(null)} onUpdate={updateProject} onMilestoneUpdate={updateMilestone} />
       <AddFieldModal open={fieldModal} existingFields={fields} onClose={() => setFieldModal(false)} onAdd={addField} />
-      <CommandMenu open={commandOpen} projects={projects} onClose={() => setCommandOpen(false)} onSelect={(project) => setSelectedKey(project.key)} onAddField={() => setFieldModal(true)} />
+      <CommandMenu open={commandOpen} projects={projects} onClose={() => setCommandOpen(false)} onSelect={(project) => setSelectedKey(project.key)} />
       <div className={`toast ${toast ? 'show' : ''}`} role="status" aria-live="polite"><span><Icon name="check" size={14} /></span>{toast}</div>
     </div>
   )

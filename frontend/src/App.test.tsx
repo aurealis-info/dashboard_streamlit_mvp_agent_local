@@ -11,7 +11,7 @@ function openProject(name = 'Invoice exception routing') {
   return screen.getByRole('dialog', { name })
 }
 
-describe('APA Tracker command center', () => {
+describe('APA Tracker project register', () => {
   beforeEach(() => window.localStorage.clear())
   afterEach(cleanup)
 
@@ -38,13 +38,25 @@ describe('APA Tracker command center', () => {
 
   it('creates a typed portal field without changing the source schema', () => {
     render(<App />)
-    fireEvent.click(screen.getByRole('button', { name: 'Add field' }))
-    const dialog = screen.getByRole('dialog', { name: 'Create a field' })
+    fireEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create editable column' }))
+    const dialog = screen.getByRole('dialog', { name: 'Create editable column' })
     fireEvent.change(within(dialog).getByPlaceholderText('e.g. Governance decision'), { target: { value: 'Decision owner' } })
-    fireEvent.click(within(dialog).getByRole('button', { name: 'Create field' }))
-    fireEvent.click(screen.getByText('Custom fields'))
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create column' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Columns' }))
 
     expect(screen.getByText('Decision owner')).toBeInTheDocument()
+  })
+
+  it('exposes manual milestone dropdowns directly in the grid', async () => {
+    render(<App />)
+    const arpStatus = await waitFor(() => screen.getAllByLabelText('ARP status')[0])
+
+    fireEvent.change(arpStatus, { target: { value: 'done' } })
+
+    expect(arpStatus).toHaveValue('done')
+    expect(screen.getByRole('status')).toHaveTextContent('ARP saved')
+    expect(screen.queryByLabelText('Assessment status')).not.toBeInTheDocument()
   })
 
   it('opens a project record with architecture-backed source fields', () => {
@@ -71,6 +83,6 @@ describe('APA Tracker command center', () => {
     const fundingStatus = within(drawer).getByLabelText('Funding status')
     fireEvent.change(fundingStatus, { target: { value: 'done' } })
     expect(fundingStatus).toHaveValue('done')
-    expect(screen.getByRole('status')).toHaveTextContent('Funding updated in the demo overlay')
+    expect(screen.getByRole('status')).toHaveTextContent('Funding saved')
   })
 })

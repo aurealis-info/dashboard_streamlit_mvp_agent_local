@@ -1,121 +1,264 @@
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import {
   CellStyleModule,
   ClientSideRowModelModule,
+  DateEditorModule,
   ModuleRegistry,
+  NumberEditorModule,
   NumberFilterModule,
   PaginationModule,
+  TextEditorModule,
   TextFilterModule,
+  TooltipModule,
   ValidationModule,
   themeBalham,
 } from 'ag-grid-community'
-import type { ColDef, ColGroupDef, ICellRendererParams } from 'ag-grid-community'
+import type { CellEditRequestEvent, ColDef, ColGroupDef, ICellRendererParams } from 'ag-grid-community'
 import { AgGridReact } from 'ag-grid-react'
+import { portalStatusOptions } from '../config/workspaceFieldPolicy'
 import { milestoneNames } from '../types'
-import type { FieldDefinition, MilestoneName, Project } from '../types'
+import type { FieldDefinition, ManualMilestoneName, MilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
 import { formatDate, formatMoney } from '../utils'
-import { EditableCell } from './EditableCell'
 import { Icon } from './Icon'
 
 ModuleRegistry.registerModules([
   CellStyleModule,
   ClientSideRowModelModule,
+  DateEditorModule,
+  NumberEditorModule,
   NumberFilterModule,
   PaginationModule,
+  TextEditorModule,
   TextFilterModule,
+  TooltipModule,
 ])
 
 if (import.meta.env.DEV) ModuleRegistry.registerModules([ValidationModule])
 
 const gridTheme = themeBalham.withParams({
-  accentColor: '#1d4ed8',
+  accentColor: '#4f46e5',
   backgroundColor: '#ffffff',
-  borderColor: '#d8dee6',
+  borderColor: '#dfe3e8',
   borderRadius: 0,
-  foregroundColor: '#1f2937',
-  headerBackgroundColor: '#f5f7fa',
-  headerTextColor: '#4b5563',
-  spacing: 4,
+  foregroundColor: '#202b3a',
+  headerBackgroundColor: '#f7f8fa',
+  headerTextColor: '#536171',
+  spacing: 5,
 })
+
+const milestoneStatuses: MilestoneStatus[] = ['not_started', 'in_progress', 'done', 'blocked']
+const milestoneLabels: Record<MilestoneStatus, string> = {
+  not_started: 'Not started',
+  in_progress: 'In progress',
+  done: 'Done',
+  blocked: 'Blocked',
+}
+
+const milestoneColumnId = (name: MilestoneName) => `milestone_${name.toLowerCase().replace(/\s+/g, '_')}`
 
 interface ProjectGridProps {
   projects: Project[]
   fields: FieldDefinition[]
   onSelect: (project: Project) => void
+  onProjectChange: (key: string, update: ProjectUpdate) => void
+  onMilestoneChange: (key: string, milestone: ManualMilestoneName, update: MilestoneUpdate) => void
   onFieldChange: (key: string, field: string, value: string | number | boolean) => void
 }
 
 function ProjectIdentityCell({ data, onSelect }: ICellRendererParams<Project> & { onSelect: (project: Project) => void }) {
   if (!data) return null
-  return <button type="button" className="grid-project-link" onClick={() => onSelect(data)}><span><strong>{data.name}</strong><small><code>{data.key}</code></small></span><Icon name="chevron" size={14} /></button>
-}
-
-function ManagerCell({ data }: ICellRendererParams<Project>) {
-  if (!data) return null
-  return <span className="grid-manager"><span className="avatar">{data.managerInitials}</span><span><strong>{data.manager}</strong><small>Manager</small></span></span>
-}
-
-function MilestoneCell({ data, milestoneName, onSelect }: ICellRendererParams<Project> & { milestoneName: MilestoneName; onSelect: (project: Project) => void }) {
-  if (!data) return null
-  const milestone = data.milestones.find((item) => item.name === milestoneName)
-  if (!milestone) return null
-  const label = milestone.status === 'done' ? 'Done' : milestone.status === 'in_progress' ? 'In progress' : milestone.status === 'blocked' ? 'Blocked' : 'Not started'
   return (
-    <button type="button" className={`grid-milestone ${milestone.status}`} onClick={() => onSelect(data)} title={`${milestoneName}: ${label}`}>
-      <span className="milestone-state-icon">{milestone.status === 'done' ? <Icon name="check" size={12} /> : milestone.status === 'blocked' ? <Icon name="warning" size={12} /> : milestone.status === 'in_progress' ? <i /> : <span>—</span>}</span>
-      <span><strong>{label}</strong>{milestone.durationDays ? <small>{milestone.durationDays} days</small> : milestone.automatic ? <small>JIRA</small> : null}</span>
+    <button type="button" className="grid-project-link" onClick={() => onSelect(data)} aria-label={`Open ${data.name}`}>
+      <span><strong>{data.name}</strong><small><code>{data.key}</code> · {data.peatsNumber}</small></span>
+      <Icon name="chevron" size={14} />
     </button>
   )
 }
 
-export function ProjectGrid({ projects, fields, onSelect, onFieldChange }: ProjectGridProps) {
-  const columnDefs = useMemo<(ColDef<Project> | ColGroupDef<Project>)[]>(() => {
-    const milestoneColumns: ColDef<Project>[] = milestoneNames.map((milestoneName) => ({
-      colId: `milestone_${milestoneName.toLowerCase().replace(/\s+/g, '_')}`,
-      headerName: milestoneName,
-      width: milestoneName === 'Technical ARP' ? 148 : 126,
-      minWidth: 118,
-      sortable: false,
-      filter: false,
-      suppressHeaderMenuButton: true,
-      cellRenderer: MilestoneCell,
-      cellRendererParams: { milestoneName, onSelect },
-      valueGetter: ({ data }) => data?.milestones.find((item) => item.name === milestoneName)?.status ?? 'not_started',
-    }))
+function ManagerCell({ data }: ICellRendererParams<Project>) {
+  if (!data) return null
+  return <span className="grid-manager"><span className="avatar">{data.managerInitials}</span><strong>{data.manager}</strong></span>
+}
 
-    const customColumns: ColDef<Project>[] = fields.filter((field) => field.active && field.visible).map((field) => ({
-      colId: `custom_${field.id}`,
-      headerName: field.label,
-      width: 160,
-      filter: true,
-      valueGetter: ({ data }) => data?.custom[field.id] ?? '',
-      cellRenderer: ({ data }: ICellRendererParams<Project>) => data ? <EditableCell field={field} value={data.custom[field.id] ?? ''} onChange={(value) => onFieldChange(data.key, field.id, value)} /> : null,
-    }))
+function MilestoneCell({ data, milestoneName, onMilestoneChange }: ICellRendererParams<Project> & { milestoneName: MilestoneName; onMilestoneChange: ProjectGridProps['onMilestoneChange'] }) {
+  if (!data) return null
+  const milestone = data.milestones.find((item) => item.name === milestoneName)
+  if (!milestone) return null
+  if (!milestone.automatic && milestoneName !== 'Assessment') {
+    return (
+      <span className={`grid-milestone inline-select ${milestone.status}`}>
+        <i className="milestone-dot" />
+        <select
+          aria-label={`${milestoneName} status`}
+          value={milestone.status}
+          onClick={(event) => event.stopPropagation()}
+          onChange={(event) => onMilestoneChange(data.key, milestoneName, {
+            status: event.target.value as MilestoneStatus,
+            startedAt: milestone.startedAt,
+            completedAt: milestone.completedAt,
+          })}
+        >
+          {milestoneStatuses.map((status) => <option value={status} key={status}>{milestoneLabels[status]}</option>)}
+        </select>
+        <Icon name="down" size={11} />
+      </span>
+    )
+  }
+  return (
+    <span className={`grid-milestone ${milestone.status}`} title={`${milestoneName} is derived from JIRA`}>
+      <i className="milestone-dot" />
+      <span><strong>{milestoneLabels[milestone.status]}</strong>{milestone.durationDays ? <small>{milestone.durationDays} days</small> : <small>JIRA</small>}</span>
+      <Icon name="lock" size={12} />
+    </span>
+  )
+}
+
+function customFieldValue(field: FieldDefinition, project: Project) {
+  const value = project.custom[field.id]
+  if (field.type === 'boolean') return value === true ? 'Yes' : 'No'
+  return value ?? ''
+}
+
+function customCellEditor(field: FieldDefinition): Pick<ColDef<Project>, 'cellEditor'> {
+  if (field.type === 'number') return { cellEditor: 'agNumberCellEditor' }
+  if (field.type === 'date') return { cellEditor: 'agDateStringCellEditor' }
+  return { cellEditor: 'agTextCellEditor' }
+}
+
+function castCustomValue(field: FieldDefinition, value: unknown): string | number | boolean {
+  if (field.type === 'boolean') return String(value).toLowerCase() === 'yes' || String(value).toLowerCase() === 'true'
+  if (field.type === 'number') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : 0
+  }
+  return String(value ?? '')
+}
+
+function CustomDropdownCell({ data, field, onFieldChange }: ICellRendererParams<Project> & { field: FieldDefinition; onFieldChange: ProjectGridProps['onFieldChange'] }) {
+  if (!data) return null
+  const options = field.type === 'boolean' ? ['Yes', 'No'] : field.options ?? []
+  return (
+    <span className="custom-inline-select">
+      <select
+        aria-label={`${field.label} for ${data.name}`}
+        value={String(customFieldValue(field, data))}
+        onClick={(event) => event.stopPropagation()}
+        onChange={(event) => onFieldChange(data.key, field.id, castCustomValue(field, event.target.value))}
+      >
+        {options.map((option) => <option value={option} key={option}>{option}</option>)}
+      </select>
+      <Icon name="down" size={11} />
+    </span>
+  )
+}
+
+function PortalStatusCell({ data, onProjectChange }: ICellRendererParams<Project> & { onProjectChange: ProjectGridProps['onProjectChange'] }) {
+  if (!data) return null
+  return (
+    <span className="custom-inline-select">
+      <select aria-label={`Portal status for ${data.name}`} value={data.portalStatus} onClick={(event) => event.stopPropagation()} onChange={(event) => onProjectChange(data.key, { portalStatus: event.target.value })}>
+        <option value="">Not set</option>
+        {portalStatusOptions.map((option) => <option value={option} key={option}>{option}</option>)}
+      </select>
+      <Icon name="down" size={11} />
+    </span>
+  )
+}
+
+export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMilestoneChange, onFieldChange }: ProjectGridProps) {
+  const handleEditRequest = useCallback((event: CellEditRequestEvent<Project>) => {
+    if (!event.data || event.newValue === event.oldValue) return
+    const colId = event.column.getColId()
+
+    if (colId === 'targetDate') {
+      onProjectChange(event.data.key, { targetDate: String(event.newValue ?? '') })
+      return
+    }
+    if (colId === 'portalStatus') {
+      onProjectChange(event.data.key, { portalStatus: String(event.newValue ?? '') })
+      return
+    }
+
+    const field = fields.find((item) => `custom_${item.id}` === colId)
+    if (field) onFieldChange(event.data.key, field.id, castCustomValue(field, event.newValue))
+  }, [fields, onFieldChange, onProjectChange])
+
+  const columnDefs = useMemo<(ColDef<Project> | ColGroupDef<Project>)[]>(() => {
+    const milestoneColumns: ColDef<Project>[] = milestoneNames.map((milestoneName) => {
+      const automatic = milestoneName === 'Assessment'
+      return {
+        colId: milestoneColumnId(milestoneName),
+        headerName: milestoneName,
+        headerTooltip: automatic ? 'JIRA source · read only' : 'Workspace field · click to edit',
+        width: milestoneName === 'Technical ARP' ? 152 : 132,
+        minWidth: 124,
+        sortable: false,
+        filter: false,
+        suppressHeaderMenuButton: true,
+        editable: false,
+        headerClass: automatic ? 'source-header' : 'workspace-header',
+        cellClass: automatic ? 'source-cell' : 'workspace-cell dropdown-cell',
+        cellRenderer: MilestoneCell,
+        cellRendererParams: { milestoneName, onMilestoneChange },
+        valueGetter: ({ data }) => milestoneLabels[data?.milestones.find((item) => item.name === milestoneName)?.status ?? 'not_started'],
+      }
+    })
+
+    const customColumns: ColDef<Project>[] = fields.filter((field) => field.active && field.visible).map((field) => {
+      const isDropdown = field.type === 'enum' || field.type === 'boolean'
+      return {
+        colId: `custom_${field.id}`,
+        headerName: field.label,
+        headerTooltip: `Workspace ${field.type} field · click to edit`,
+        width: 170,
+        filter: true,
+        editable: !isDropdown,
+        headerClass: 'workspace-header',
+        cellClass: isDropdown ? 'workspace-cell dropdown-cell' : 'workspace-cell',
+        valueGetter: ({ data }) => data ? customFieldValue(field, data) : '',
+        valueFormatter: field.type === 'date' ? ({ value }) => value ? formatDate(String(value)) : '—' : undefined,
+        cellRenderer: isDropdown ? CustomDropdownCell : undefined,
+        cellRendererParams: isDropdown ? { field, onFieldChange } : undefined,
+        ...(isDropdown ? {} : customCellEditor(field)),
+      }
+    })
+
+    const source = (definition: ColDef<Project>): ColDef<Project> => ({
+      editable: false,
+      headerClass: 'source-header',
+      cellClass: 'source-cell',
+      headerTooltip: 'JIRA source · read only',
+      ...definition,
+    })
 
     return [
-      { field: 'name', headerName: 'Project', pinned: 'left', lockPinned: true, width: 290, minWidth: 250, cellRenderer: ProjectIdentityCell, cellRendererParams: { onSelect } },
-      { field: 'peatsNumber', headerName: 'PEATS #', width: 132 },
-      { field: 'account', headerName: 'Account', width: 160 },
-      { field: 'manager', headerName: 'Manager', width: 178, cellRenderer: ManagerCell },
-      { field: 'quotedPrice', headerName: 'Quoted price', width: 138, cellClass: 'ag-right-aligned-cell', headerClass: 'ag-right-aligned-header', filter: 'agNumberColumnFilter', valueFormatter: ({ value }) => formatMoney(Number(value)) },
-      { field: 'budgetCode', headerName: 'Budget code', width: 132 },
-      { field: 'cp4Name', headerName: 'CP4 name', width: 170 },
-      { field: 'developmentStatus', headerName: 'Development status', width: 166 },
-      { headerName: 'Milestones', marryChildren: true, children: milestoneColumns },
-      { field: 'reporter', headerName: 'Reporter', width: 150 },
-      { field: 'targetDate', headerName: 'Target date', width: 128, valueFormatter: ({ value }) => value ? formatDate(String(value)) : '—' },
-      { field: 'portalStatus', headerName: 'Portal status', width: 140, valueFormatter: ({ value }) => value || '—' },
-      { colId: 'linkedIssues', headerName: 'Linked issues', width: 126, valueGetter: ({ data }) => data?.linkedIssues.length ?? 0, valueFormatter: ({ value }) => `${value} linked` },
-      { field: 'sourceKey', headerName: 'Source', width: 100 },
-      ...customColumns,
+      source({ field: 'name', headerName: 'Project', pinned: 'left', lockPinned: true, width: 310, minWidth: 270, cellClass: 'source-cell project-cell', cellRenderer: ProjectIdentityCell, cellRendererParams: { onSelect } }),
+      source({ field: 'manager', headerName: 'Owner', width: 180, cellRenderer: ManagerCell }),
+      source({ field: 'quotedPrice', headerName: 'Quoted price', width: 145, cellClass: 'source-cell ag-right-aligned-cell', headerClass: 'source-header ag-right-aligned-header', filter: 'agNumberColumnFilter', valueFormatter: ({ value }) => formatMoney(Number(value)) }),
+      { headerName: 'Development lifecycle · 8 milestones', marryChildren: true, headerClass: 'milestone-group-header', children: milestoneColumns },
+      { headerName: 'Workspace · editable', marryChildren: true, headerClass: 'workspace-group-header', children: [
+        { field: 'targetDate', headerName: 'Target date', width: 142, editable: true, cellEditor: 'agDateStringCellEditor', headerClass: 'workspace-header', cellClass: 'workspace-cell', headerTooltip: 'Workspace date · click to edit', valueFormatter: ({ value }) => value ? formatDate(String(value)) : '—' },
+        { field: 'portalStatus', headerName: 'Portal status', width: 158, editable: portalStatusOptions.length === 0, cellEditor: portalStatusOptions.length === 0 ? 'agTextCellEditor' : undefined, cellRenderer: portalStatusOptions.length ? PortalStatusCell : undefined, cellRendererParams: portalStatusOptions.length ? { onProjectChange } : undefined, headerClass: 'workspace-header', cellClass: portalStatusOptions.length ? 'workspace-cell dropdown-cell' : 'workspace-cell', headerTooltip: portalStatusOptions.length ? 'Workspace dropdown · click to edit' : 'Workspace text · click to edit', valueFormatter: ({ value }) => value || '—' },
+        ...customColumns,
+      ] },
+      { headerName: 'JIRA details · read only', marryChildren: true, headerClass: 'source-group-header', children: [
+        source({ field: 'peatsNumber', headerName: 'PEATS #', width: 138 }),
+        source({ field: 'account', headerName: 'Account', width: 168 }),
+        source({ field: 'developmentStatus', headerName: 'JIRA dev status', width: 166 }),
+        source({ field: 'budgetCode', headerName: 'Budget code', width: 138 }),
+        source({ field: 'cp4Name', headerName: 'CP4 name', width: 180 }),
+        source({ field: 'reporter', headerName: 'Reporter', width: 158 }),
+        source({ colId: 'linkedIssues', headerName: 'Linked issues', width: 132, valueGetter: ({ data }) => data?.linkedIssues.length ?? 0, valueFormatter: ({ value }) => `${value} linked` }),
+        source({ field: 'sourceKey', headerName: 'Source', width: 112 }),
+      ] },
     ]
-  }, [fields, onFieldChange, onSelect])
+  }, [fields, onFieldChange, onMilestoneChange, onProjectChange, onSelect])
 
   const defaultColDef = useMemo<ColDef<Project>>(() => ({
     sortable: true,
     filter: true,
     resizable: true,
-    minWidth: 110,
+    minWidth: 116,
   }), [])
 
   return (
@@ -126,8 +269,12 @@ export function ProjectGrid({ projects, fields, onSelect, onFieldChange }: Proje
         columnDefs={columnDefs}
         defaultColDef={defaultColDef}
         getRowId={({ data }) => data.key}
-        rowHeight={54}
-        headerHeight={40}
+        onCellEditRequest={handleEditRequest}
+        readOnlyEdit
+        singleClickEdit
+        stopEditingWhenCellsLoseFocus
+        rowHeight={58}
+        headerHeight={42}
         groupHeaderHeight={34}
         pagination
         paginationPageSize={25}
