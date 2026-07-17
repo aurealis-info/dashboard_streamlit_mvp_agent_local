@@ -123,19 +123,43 @@ Two logical layers presented to the UI as one row:
 - **Append-only doubles as audit** — full history is inherent, so no separate audit table for MVP.
 - **`namespace`** lets multiple people/teams attach their own fields without collisions (multi-tenant answer).
 - **`field_name`** lets a new custom column appear with **zero schema change**.
-- **`entity_type` + `entity_key`** attach a value to any grain: `project` (`ROOT_ISSUE_KEY`), `resource` (`SPRINT_ISSUE_KEY`), `epic` (`EPIC_KEY`), `story` (`STORY_KEY`), or `milestone` (`ROOT_ISSUE_KEY` with `field_name = ARP|FUNDING|TARP|DATA_ENG|AA_DEV|E2E_TESTING|DEPLOYMENT`).
+- **`entity_type` + `entity_key`** attach a value to any grain: `project` (`ROOT_ISSUE_KEY`), `resource` (`SPRINT_ISSUE_KEY`), `epic` (`EPIC_KEY`), `story` (`STORY_KEY`), or `milestone` (`ROOT_ISSUE_KEY`). A milestone attribute uses the stable `field_name` convention in §6.2, for example `ARP.status` or `DATA_ENG.completed_at`.
 - **`source_key`** keeps the overlay board/queue-agnostic, mirroring the pipeline.
 
-### 6.3 Dynamic user-defined columns (name + type, zero schema change)
+### 6.1 Dynamic user-defined columns (name + type, zero schema change)
 
 Users add their own manual columns from the UI. Two app-owned tables make this safe and type-aware:
 
 - **`APA_FIELD_DEFINITIONS`** — 1 small registry describing each custom column: `field_name`, display `label`, `data_type` (`text | number | date | boolean | enum`), optional `enum_options`, which `entity_type` it applies to, `namespace`, `editable`, and audit columns. Creating a column = one append to this registry.
 - **`APA_OVERRIDES`** — stores the actual per-entity values (EAV, always as STRING). The registry's `data_type` tells the UI which input widget to render and tells the API how to validate/cast on read.
 
-So **dynamic column and type selection/creation** needs **no BigQuery migration**: define the column (registry insert) → it renders with the right input type → values land in `APA_OVERRIDES`. Milestones are just seeded, well-known field definitions (`data_type=enum` for status, `data_type=date` for dates).
+So **dynamic column and type selection/creation** needs **no BigQuery migration**: define the column (registry insert) → it renders with the right input type → values land in `APA_OVERRIDES`. Milestone attributes are seeded, well-known definitions (`data_type=enum` for status, `data_type=date` for dates).
 
-### 6.1 Write pattern — append-only + “current” view (recommended)
+### 6.2 Manual milestone field contract (status + schedule boundaries)
+
+Keep the physical overlay table agnostic. Store each manual milestone as three independently versioned EAV fields rather than serializing one JSON object:
+
+| Milestone | Stable token | Status field | Start field | End field |
+|---|---|---|---|---|
+| ARP | `ARP` | `ARP.status` | `ARP.started_at` | `ARP.completed_at` |
+| Funding | `FUNDING` | `FUNDING.status` | `FUNDING.started_at` | `FUNDING.completed_at` |
+| Technical ARP | `TARP` | `TARP.status` | `TARP.started_at` | `TARP.completed_at` |
+| Data Eng | `DATA_ENG` | `DATA_ENG.status` | `DATA_ENG.started_at` | `DATA_ENG.completed_at` |
+| AA Dev | `AA_DEV` | `AA_DEV.status` | `AA_DEV.started_at` | `AA_DEV.completed_at` |
+| E2E Testing | `E2E_TESTING` | `E2E_TESTING.status` | `E2E_TESTING.started_at` | `E2E_TESTING.completed_at` |
+| Deployment | `DEPLOYMENT` | `DEPLOYMENT.status` | `DEPLOYMENT.started_at` | `DEPLOYMENT.completed_at` |
+
+- `status` is an enum: `not_started | in_progress | done | blocked`.
+- `started_at` and `completed_at` are ISO `YYYY-MM-DD` values in the overlay and are typed as `date` by `APA_FIELD_DEFINITIONS`. The UI labels them **Start date** and **End date** so planned manual windows can power the portfolio timeline; status tells the user whether that window is planned, active, blocked, or complete.
+- Assessment is never written to the overlay. Its status/start/end values continue to come from `T_APA_PROJECT_MILESTONE_CURRENT` and are normalized into the same API read model.
+- `PATCH /milestones/{name}` validates the whole payload first, then appends only the changed attributes as one batch. All rows from the request share actor and request timestamp; the request is guarded by one idempotency key, while `version` remains monotonic per full key tuple.
+- An omitted attribute means “unchanged.” An explicit JSON `null` appends a null latest value and therefore clears a manual date without deleting audit history.
+- Reject unknown tokens, writes to Assessment, invalid enum values, non-ISO dates, and any range where `started_at > completed_at`.
+- The append history records schedule movement naturally: a future `completed_at` is the current planned end while a milestone is not done; the latest value becomes the confirmed end when status changes to `done`. If governance later needs plan-vs-actual reporting, add distinct planned fields rather than silently changing these semantics.
+
+The registry seeds 24 definitions (three attributes × eight milestones). Assessment's three definitions have `editable=false`; the remaining 21 definitions have `editable=true`. Use `sort_order = milestone_ordinal * 10 + attribute_ordinal`, where status/start/end use ordinals 1/2/3. This preserves the governed milestone order while keeping every value typed and independently auditable.
+
+### 6.3 Write pattern — append-only + “current” view (recommended)
 
 BigQuery is analytical, not transactional. Row-by-row `UPDATE` DML has quotas/latency and is the wrong tool for interactive edits. This mirrors the **proven DPE portal pattern** (it writes feedback via append `WRITE_APPEND` load jobs, never row UPDATEs). Instead:
 
@@ -143,9 +167,9 @@ BigQuery is analytical, not transactional. Row-by-row `UPDATE` DML has quotas/la
 - A **view** returns the latest row per key tuple (`ROW_NUMBER() OVER (PARTITION BY source_key, entity_type, entity_key, namespace, field_name ORDER BY updated_at_utc DESC, version DESC) = 1`).
 - Audit history is captured **for free**; no UPDATE quota contention.
 
-### 6.2 Alternative — MERGE (upsert) DML
+### 6.4 Alternative — MERGE (upsert) DML
 
-For very low edit volume, a single-row-per-key table updated with `MERGE` is acceptable. Trade-off: DML quotas, higher latency, and you lose free history. **MVP default is 6.1.**
+For very low edit volume, a single-row-per-key table updated with `MERGE` is acceptable. Trade-off: DML quotas, higher latency, and you lose free history. **MVP default is 6.3.**
 
 ## 7. BigQuery Schema (`APA_PORTAL` dataset)
 
@@ -157,7 +181,7 @@ For very low edit volume, a single-row-per-key table updated with `MERGE` is acc
   {"name":"entity_type","type":"STRING","mode":"REQUIRED","description":"project | resource | epic | story | milestone"},
   {"name":"entity_key","type":"STRING","mode":"REQUIRED","description":"root_issue_key | sprint_issue_key | epic_key | story_key"},
   {"name":"namespace","type":"STRING","mode":"REQUIRED","description":"Logical owner/group for portal-managed fields"},
-  {"name":"field_name","type":"STRING","mode":"REQUIRED","description":"Field identifier, e.g. milestone name, portal_status, notes"},
+  {"name":"field_name","type":"STRING","mode":"REQUIRED","description":"Stable field identifier, e.g. ARP.status, ARP.started_at, portal_status, notes"},
   {"name":"field_value","type":"STRING","mode":"NULLABLE","description":"Stringified user value (cast per APA_FIELD_DEFINITIONS.data_type on read)"},
   {"name":"updated_by","type":"STRING","mode":"REQUIRED","description":"Authenticated user email"},
   {"name":"updated_at_utc","type":"TIMESTAMP","mode":"REQUIRED","description":"Write timestamp (server-set); also the audit time"},
@@ -178,14 +202,14 @@ Partition on `updated_at_utc` (DAY), `require_partition_filter=false`, matching 
   {"name":"data_type","type":"STRING","mode":"REQUIRED","description":"text | number | date | boolean | enum"},
   {"name":"enum_options","type":"STRING","mode":"REPEATED","description":"Allowed values when data_type = enum"},
   {"name":"editable","type":"BOOL","mode":"REQUIRED","description":"False for read-only/derived (e.g. auto Assessment)"},
-  {"name":"sort_order","type":"INTEGER","mode":"NULLABLE","description":"UI ordering (e.g. milestone order 1..8)"},
+  {"name":"sort_order","type":"INTEGER","mode":"NULLABLE","description":"UI ordering (milestone attributes use milestone ordinal * 10 + attribute ordinal)"},
   {"name":"active","type":"BOOL","mode":"REQUIRED","description":"Soft delete/hide without dropping history"},
   {"name":"created_by","type":"STRING","mode":"REQUIRED","description":"Who defined the column"},
   {"name":"created_at_utc","type":"TIMESTAMP","mode":"REQUIRED","description":"When it was defined"}
 ]
 ```
 
-The 8 milestones ship as seeded definitions (`entity_type='milestone'`, `sort_order` 1..8; Assessment `editable=false`). Everything else the users create at runtime.
+The milestone editor ships with 24 seeded attribute definitions (`entity_type='milestone'`; status/start/end for all eight milestones). Assessment definitions are `editable=false`; the other 21 are editable. Everything else the users create at runtime.
 
 ### 7.2 Reading the latest value — computed inline (no persisted view)
 
@@ -207,12 +231,12 @@ WITH Latest AS (
   ) WHERE rn = 1
 ), ov AS (
   SELECT entity_key,
-    MAX(IF(field_name='milestone', field_value, NULL)) AS milestone,
     MAX(IF(field_name='portal_status', field_value, NULL)) AS portal_status,
+    MAX(IF(field_name='target_date', field_value, NULL)) AS target_date,
     MAX(IF(field_name='notes', field_value, NULL)) AS notes
   FROM Latest GROUP BY entity_key
 )
-SELECT c.*, ov.milestone, ov.portal_status, ov.notes
+SELECT c.*, ov.portal_status, SAFE_CAST(ov.target_date AS DATE) AS target_date, ov.notes
 FROM `${sem_project}.JIRA_SEMANTIC.T_APA_PROJECT_CURRENT` c
 LEFT JOIN ov ON ov.entity_key = c.root_issue_key;
 ```
@@ -243,22 +267,67 @@ An epic-level rollup (points, done/blocked counts) is a simple `GROUP BY EPIC_KE
 Merge the auto Assessment row from the mart with the 7 manual milestones from the overlay:
 
 ```sql
-WITH manual AS (
-  SELECT entity_key AS root_issue_key, field_name AS milestone_name,
-         MAX(IF(...)) -- status/date fields per milestone, latest row per key
-  FROM `${sem_project}.APA_PORTAL.APA_OVERRIDES`
-  WHERE entity_type='milestone' AND namespace=@namespace
-  GROUP BY entity_key, field_name
+WITH LatestManual AS (
+  SELECT entity_key, field_name, field_value
+  FROM (
+    SELECT *, ROW_NUMBER() OVER (
+      PARTITION BY source_key, entity_type, entity_key, namespace, field_name
+      ORDER BY updated_at_utc DESC, version DESC) AS rn
+    FROM `${sem_project}.APA_PORTAL.APA_OVERRIDES`
+    WHERE source_key = @source_key
+      AND entity_type = 'milestone'
+      AND namespace = @namespace
+      AND REGEXP_CONTAINS(
+        field_name,
+        r'^(ARP|FUNDING|TARP|DATA_ENG|AA_DEV|E2E_TESTING|DEPLOYMENT)\.(status|started_at|completed_at)$'
+      )
+  )
+  WHERE rn = 1
+), Manual AS (
+  SELECT
+    entity_key AS root_issue_key,
+    CASE SPLIT(field_name, '.')[SAFE_OFFSET(0)]
+      WHEN 'ARP' THEN 'ARP'
+      WHEN 'FUNDING' THEN 'Funding'
+      WHEN 'TARP' THEN 'Technical ARP'
+      WHEN 'DATA_ENG' THEN 'Data Eng'
+      WHEN 'AA_DEV' THEN 'AA Dev'
+      WHEN 'E2E_TESTING' THEN 'E2E Testing'
+      WHEN 'DEPLOYMENT' THEN 'Deployment'
+    END AS milestone_name,
+    MAX(IF(SPLIT(field_name, '.')[SAFE_OFFSET(1)] = 'status', field_value, NULL)) AS status,
+    MAX(IF(SPLIT(field_name, '.')[SAFE_OFFSET(1)] = 'started_at', field_value, NULL)) AS started_at,
+    MAX(IF(SPLIT(field_name, '.')[SAFE_OFFSET(1)] = 'completed_at', field_value, NULL)) AS completed_at
+  FROM LatestManual
+  GROUP BY root_issue_key, milestone_name
 )
-SELECT m.root_issue_key, m.milestone_name, m.status, m.started_at,
-       m.completed_at, m.duration_days, 'auto' AS source
+SELECT
+  m.root_issue_key,
+  m.milestone_name,
+  CASE
+    WHEN UPPER(m.milestone_name) = 'ASSESSMENT' THEN m.status
+    ELSE COALESCE(o.status, m.status, 'not_started')
+  END AS status,
+  CASE
+    WHEN UPPER(m.milestone_name) = 'ASSESSMENT' THEN SAFE_CAST(m.started_at AS DATE)
+    ELSE SAFE_CAST(o.started_at AS DATE)
+  END AS started_at,
+  CASE
+    WHEN UPPER(m.milestone_name) = 'ASSESSMENT' THEN SAFE_CAST(m.completed_at AS DATE)
+    ELSE SAFE_CAST(o.completed_at AS DATE)
+  END AS completed_at,
+  CASE
+    WHEN UPPER(m.milestone_name) = 'ASSESSMENT' THEN m.duration_days
+    ELSE DATE_DIFF(SAFE_CAST(o.completed_at AS DATE), SAFE_CAST(o.started_at AS DATE), DAY)
+  END AS duration_days,
+  CASE WHEN UPPER(m.milestone_name) = 'ASSESSMENT' THEN 'jira' ELSE 'manual' END AS source
 FROM `${sem_project}.JIRA_SEMANTIC.T_APA_PROJECT_MILESTONE_CURRENT` m
-WHERE m.milestone_name = 'ASSESSMENT'
-UNION ALL
-SELECT root_issue_key, milestone_name,
-       /* manual status/dates */ NULL, NULL, NULL, NULL, 'manual'
-FROM manual;
+LEFT JOIN Manual o
+  ON o.root_issue_key = m.root_issue_key
+ AND UPPER(o.milestone_name) = UPPER(m.milestone_name);
 ```
+
+The mart supplies the complete eight-row milestone skeleton for every project, including seven seeded `not_started` rows. The LEFT JOIN therefore preserves milestones that have never been edited; the overlay only replaces their manual attributes.
 
 ## 8. Where/How the objects are created and filled
 
@@ -388,7 +457,7 @@ flask --app app run --debug --port 8080
 
 - **Frontend:** `npm run dev` (Vite) with a dev-server proxy forwarding `/api` → `http://localhost:8080`, so the React app talks to local Flask exactly as it will in the single Cloud Run service.
 - **Auth gate locally:** stub the identity header/email gate (e.g. `LOCAL_USER_EMAIL`) so `updated_by` is populated without standing up IAP/SSO; keep the real gate behind an env flag.
-- **Seed data:** insert the 8 milestone definitions into `APA_FIELD_DEFINITIONS` (Assessment `editable=false`) so the milestone UI renders on first run. A tiny `scripts/seed_field_definitions.py` (BQ `insert_rows_json`) mirrors the existing local-scaffold script style.
+- **Seed data:** insert the 24 milestone attribute definitions from §6.2 into `APA_FIELD_DEFINITIONS` (Assessment attributes `editable=false`) so the milestone UI renders on first run. A tiny `scripts/seed_field_definitions.py` (BQ `insert_rows_json`) mirrors the existing local-scaffold script style.
 - **Contract test:** before wiring UI, run the merged-read SQL (§7.3–7.5) directly against dev to confirm the marts + overlay join returns rows — the same approach used by `test_dashboard_fetch.py` to validate JIRA fetch before touching pipelines.
 
 ## 17. APA Tracker frontend reference implementation
@@ -397,11 +466,12 @@ The repository now contains the production-shaped React MVP under `frontend/`. I
 
 ### 17.1 Delivered product surfaces
 
-- **Project command center:** one compact, horizontally scrollable operating register with the project identity pinned while users review the full record.
+- **Project command center:** one compact operating surface with a horizontally scrollable register and a schedule view; project identity remains pinned while users review the full record.
+- **Resource command center:** an assignee+sprint workload roster (retained from the useful part of the Streamlit prototype) drives a source-backed sprint-issue table from `T_APA_RESOURCE_ISSUE_CURRENT`. Registered resource-grain workspace columns edit beside the locked JIRA fields.
 - **Source-backed project columns:** root issue key, PEATS number, account, manager, quoted price, budget code, CP4 name, reporter, source key, and derived development status come from `T_APA_PROJECT_CURRENT`.
-- **Eight milestone columns:** Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment appear together in every project row. Status color is used only to encode `done`, `in_progress`, `blocked`, or `not_started`.
-- **Project workspace:** source fields, linked issues, the eight-milestone editor, project→epic→story work, and portal-owned fields are separated into focused tabs.
-- **Dynamic field workflow:** creates one of the five registered field types and immediately exposes it as an editable project column without changing a BigQuery schema.
+- **Eight milestone columns and timeline:** Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment appear together in every project row. The timeline uses their start/end boundaries; status color is used only to encode `done`, `in_progress`, `blocked`, or `not_started`.
+- **Project workspace:** source fields, linked issues, the eight-milestone editor, delivery-resource context above project→epic→story work, and portal-owned fields are separated into focused tabs.
+- **Dynamic field workflow:** creates one of the five registered field types at project or resource grain and immediately exposes it as an editable column without changing a BigQuery schema.
 - **Operational controls:** source-field search, manager/account filters, column sorting/filtering/resizing, pagination, a custom-field visibility control, and keyboard quick find.
 - **Responsive shell:** navigation collapses at compact widths while the register retains intentional internal horizontal scrolling instead of collapsing source fields into decorative cards.
 
@@ -416,9 +486,12 @@ The demo stores `projects` and `field definitions` in versioned `apa-tracker.*` 
 | Load portfolio | `GET /api/v1/projects` | Merged project base + latest project overrides |
 | Edit typed cell | `PATCH /api/v1/projects/{key}/overrides` | Append one `project` override row |
 | Change portal status / target date / notes | `PATCH /api/v1/projects/{key}/overrides` | Append one row per changed allow-listed field |
-| Update a manual milestone | `PATCH /api/v1/projects/{key}/milestones/{name}` | Append manual milestone status/dates; reject Assessment |
+| Update a manual milestone | `PATCH /api/v1/projects/{key}/milestones/{name}` | Append changed `{TOKEN}.status`, `{TOKEN}.started_at`, and `{TOKEN}.completed_at` rows; reject Assessment |
 | Open project work tab | `GET /api/v1/projects/{key}/epics` | Read flattened epic/story mart, optionally merged with overlays |
+| Load resource workspace | `GET /api/v1/resources` | Read sprint-issue mart + latest resource overrides; aggregate assignee workload in the client |
+| Edit resource workspace cell | `PATCH /api/v1/resources/{sprint_issue_key}/overrides` | Append one registered `resource` override row |
 | Load column manager | `GET /api/v1/field-definitions?entity_type=project` | Read active typed registry entries |
+| Load resource columns | `GET /api/v1/field-definitions?entity_type=resource` | Read active resource-grain definitions |
 | Create workspace field | `POST /api/v1/field-definitions` | Append/register a new active definition |
 
 The guide intentionally defines no JIRA issue-creation endpoint, so the reference frontend does not manufacture local projects. A future create action must route to an approved intake service and must not insert a fake base-mart row. Assessment remains JIRA-derived and immutable from the portal.
@@ -450,6 +523,21 @@ Override writes should send the version last read by the client:
   }
 }
 ```
+
+Milestone writes carry field-level versions because status, start, and end are independent append-only tuples:
+
+```json
+{
+  "versions": {"status": 4, "started_at": 2, "completed_at": 2},
+  "fields": {
+    "status": "in_progress",
+    "started_at": "2026-07-06",
+    "completed_at": "2026-07-24"
+  }
+}
+```
+
+The API maps the route milestone name to the stable token in §6.2; clients never construct arbitrary `field_name` values. It checks the version of every changed tuple before appending the batch and returns the canonical milestone plus its three new versions.
 
 Return the canonical merged project and new version after a successful append. Use one error shape everywhere:
 

@@ -9,12 +9,13 @@ import type { SelectMenuOption } from './SelectMenu'
 
 interface ProjectDrawerProps {
   project: Project | null
+  initialTab?: ProjectDrawerTab
   onClose: () => void
   onUpdate: (key: string, update: ProjectUpdate) => void
   onMilestoneUpdate: (key: string, milestone: ManualMilestoneName, update: MilestoneUpdate) => void
 }
 
-type DrawerTab = 'overview' | 'milestones' | 'work' | 'portal'
+export type ProjectDrawerTab = 'overview' | 'milestones' | 'work' | 'portal'
 const milestoneLabel: Record<MilestoneStatus, string> = { done: 'Done', in_progress: 'In progress', not_started: 'Not started', blocked: 'Blocked' }
 const editableStatuses: MilestoneStatus[] = ['not_started', 'in_progress', 'done', 'blocked']
 const milestoneStatusOptions: SelectMenuOption<MilestoneStatus>[] = editableStatuses.map((status) => ({
@@ -23,8 +24,8 @@ const milestoneStatusOptions: SelectMenuOption<MilestoneStatus>[] = editableStat
   tone: status,
 }))
 
-export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }: ProjectDrawerProps) {
-  const [tab, setTab] = useState<DrawerTab>('overview')
+export function ProjectDrawer({ project, initialTab = 'overview', onClose, onUpdate, onMilestoneUpdate }: ProjectDrawerProps) {
+  const [tab, setTab] = useState<ProjectDrawerTab>(initialTab)
   const [notes, setNotes] = useState(project?.notes ?? '')
   const [targetDate, setTargetDate] = useState(project?.targetDate ?? '')
   const [portalStatus, setPortalStatus] = useState(project?.portalStatus ?? '')
@@ -39,6 +40,18 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
 
   if (!project) return null
   const storyCount = project.epics.reduce((sum, epic) => sum + epic.stories.length, 0)
+  const resourceSummary = Array.from(project.epics.reduce((rows, epic) => {
+    epic.stories.forEach((story) => {
+      const current = rows.get(story.assignee) ?? { assignee: story.assignee, sprints: new Set<string>(), issues: 0, openPoints: 0, donePoints: 0 }
+      current.sprints.add(story.sprintName ?? 'Unscheduled')
+      current.issues += 1
+      if (story.status === 'Done') current.donePoints += story.points
+      else current.openPoints += story.points
+      rows.set(story.assignee, current)
+    })
+    return rows
+  }, new Map<string, { assignee: string; sprints: Set<string>; issues: number; openPoints: number; donePoints: number }>()).values())
+    .sort((left, right) => right.openPoints - left.openPoints || left.assignee.localeCompare(right.assignee))
 
   const savePortalFields = () => {
     onUpdate(project.key, { notes, targetDate, portalStatus })
@@ -54,12 +67,12 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
           <div className="drawer-summary"><span><small>Account</small><strong>{project.account}</strong></span><span><small>Manager</small><strong>{project.manager}</strong></span><span><small>Quoted price</small><strong>{formatMoney(project.quotedPrice)}</strong></span><span><small>Development status</small><strong>{project.developmentStatus}</strong></span></div>
         </header>
         <div className="tabs" role="tablist" aria-label="Project details">
-          {([['overview', 'Overview'], ['milestones', 'Milestones · 8'], ['work', `Epics & stories · ${storyCount}`], ['portal', 'Workspace fields']] as [DrawerTab, string][]).map(([value, label]) => <button role="tab" aria-selected={tab === value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)} key={value}>{label}</button>)}
+          {([['overview', 'Overview'], ['milestones', 'Milestones · 8'], ['work', `Work · ${storyCount}`], ['portal', 'Workspace fields']] as [ProjectDrawerTab, string][]).map(([value, label]) => <button role="tab" aria-selected={tab === value} className={tab === value ? 'active' : ''} onClick={() => setTab(value)} key={value}>{label}</button>)}
         </div>
         <div className="drawer-body">
           {tab === 'overview' ? <>
             <section className="record-section">
-              <div className="section-heading"><div><span className="eyebrow">T_APA_PROJECT_CURRENT</span><h3>Source fields</h3></div><span className="read-only-label">Read only</span></div>
+              <div className="section-heading"><div><h3>JIRA source fields</h3></div><span className="read-only-label">Read only</span></div>
               <dl className="source-field-grid">
                 <div><dt>Root issue key</dt><dd><code>{project.key}</code></dd></div>
                 <div><dt>Source key</dt><dd>{project.sourceKey}</dd></div>
@@ -74,15 +87,15 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
               </dl>
             </section>
             <section className="record-section">
-              <div className="section-heading"><div><span className="eyebrow">LINKED_ISSUES</span><h3>Linked issues</h3></div><small>{project.linkedIssues.length} records</small></div>
+              <div className="section-heading"><div><h3>Linked issues</h3></div><small>{project.linkedIssues.length} records</small></div>
               <div className="linked-issue-list">{project.linkedIssues.length ? project.linkedIssues.map((issue) => <article key={issue.key}><span><code>{issue.key}</code><strong>{issue.summary}</strong></span><span>{issue.linkType}</span><em className={statusClass(issue.status)}>{issue.status}</em></article>) : <p>No linked issues are available from the current mart snapshot.</p>}</div>
             </section>
           </> : null}
 
           {tab === 'milestones' ? <section className="record-section milestone-section">
-            <div className="section-heading"><div><span className="eyebrow">T_APA_PROJECT_MILESTONE_CURRENT + overlay</span><h3>Project milestones</h3></div><small>Assessment is JIRA-derived</small></div>
+            <div className="section-heading"><div><h3>Milestone schedule</h3></div><small>Assessment is JIRA-derived</small></div>
             <div className="milestone-table" role="table" aria-label="Project milestones">
-              <div className="milestone-table-head" role="row"><span>Milestone</span><span>Status</span><span>Started</span><span>Completed</span><span>Source</span></div>
+              <div className="milestone-table-head" role="row"><span>Milestone</span><span>Status</span><span>Start date</span><span>End date</span><span>Source</span></div>
               {project.milestones.map((milestone) => {
                 const manualName = milestone.name as ManualMilestoneName
                 return <div className="milestone-table-row" role="row" key={milestone.name}>
@@ -98,23 +111,31 @@ export function ProjectDrawer({ project, onClose, onUpdate, onMilestoneUpdate }:
                       />}
                   {milestone.automatic
                     ? <span>{milestone.startedAt ? formatDate(milestone.startedAt) : '—'}</span>
-                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} start date</span><input type="date" value={milestone.startedAt ?? ''} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: event.target.value || undefined, completedAt: milestone.completedAt })} /></label>}
+                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} start date</span><input type="date" value={milestone.startedAt ?? ''} max={milestone.completedAt} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: event.target.value || undefined, completedAt: milestone.completedAt })} /></label>}
                   {milestone.automatic
                     ? <span>{milestone.completedAt ? formatDate(milestone.completedAt) : '—'}{milestone.durationDays ? <small>{milestone.durationDays} days</small> : null}</span>
-                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} completion date</span><input type="date" value={milestone.completedAt ?? ''} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: milestone.startedAt, completedAt: event.target.value || undefined })} /></label>}
-                  <span className="source-type">{milestone.automatic ? 'JIRA' : 'Portal'}</span>
+                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} end date</span><input type="date" value={milestone.completedAt ?? ''} min={milestone.startedAt} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: milestone.startedAt, completedAt: event.target.value || undefined })} /></label>}
+                  <span className="source-type">{milestone.automatic ? 'JIRA' : 'Manual'}</span>
                 </div>
               })}
             </div>
           </section> : null}
 
           {tab === 'work' ? <section className="record-section work-section">
-            <div className="section-heading"><div><span className="eyebrow">T_APA_PROJECT_EPIC_STORY_CURRENT</span><h3>Epics and stories</h3></div><small>{project.epics.length} epics · {storyCount} stories</small></div>
+            <div className="section-heading"><div><h3>Delivery resources</h3></div><small>JIRA story assignments</small></div>
+            {resourceSummary.length ? <div className="project-resource-table" role="table" aria-label="Project resource workload">
+              <div className="project-resource-head" role="row"><span>Assignee</span><span>Sprint</span><span>Issues</span><span>Open pts</span><span>Done pts</span></div>
+              {resourceSummary.map((resource) => <div className="project-resource-row" role="row" key={resource.assignee}>
+                <strong><span className="avatar">{resource.assignee.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span>{resource.assignee}</strong>
+                <span>{Array.from(resource.sprints).join(', ')}</span><span>{resource.issues}</span><span>{resource.openPoints}</span><span>{resource.donePoints}</span>
+              </div>)}
+            </div> : null}
+            <div className="work-subheading"><div><h3>Project → epic → story</h3><small>{project.epics.length} epics · {storyCount} stories</small></div></div>
             {project.epics.length ? <div className="epic-list">{project.epics.map((epic) => <details open key={epic.key}><summary><span><code>{epic.key}</code><strong>{epic.name}</strong></span><span className="epic-progress">{epic.progress}%</span></summary><div>{epic.stories.map((story) => <article className="story" key={story.key}><span className={`story-state ${statusClass(story.status)}`} /><span><strong>{story.name}</strong><small><code>{story.key}</code> · {story.points} points · {story.assignee}{story.sprintName ? ` · ${story.sprintName}` : ''}</small></span><em className={statusClass(story.status)}>{story.status}</em></article>)}</div></details>)}</div> : <div className="drawer-empty"><strong>No linked epics</strong><p>Project-to-epic coverage is partial in the current source data.</p></div>}
           </section> : null}
 
           {tab === 'portal' ? <section className="record-section portal-fields-section">
-            <div className="section-heading"><div><span className="eyebrow">APA_PORTAL overlay</span><h3>Editable workspace context</h3></div><span className="audit-safe"><Icon name="check" size={12} />Append-only history</span></div>
+            <div className="section-heading"><div><h3>Workspace fields</h3></div><span className="audit-safe"><Icon name="check" size={12} />Append-only history</span></div>
             <div className="portal-form">
               <label><span>Target date</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)} /></label>
               {portalStatusOptions.length ? <div className="portal-form-field"><span>Portal status</span><SelectMenu ariaLabel="Portal status" value={portalStatus} options={[{ value: '', label: 'Not set' }, ...portalStatusOptions.map((option) => ({ value: option, label: option }))]} onValueChange={setPortalStatus} /></div> : <label><span>Portal status</span><input value={portalStatus} onChange={(event) => setPortalStatus(event.target.value)} placeholder="Not set" /></label>}

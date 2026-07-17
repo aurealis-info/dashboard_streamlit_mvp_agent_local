@@ -5,9 +5,9 @@ interface PersistedValue<T> {
   data: T
 }
 
-// Version 3 replaces the speculative CRM model with the documented JIRA mart
-// fields and the eight governed milestones.
-const STORAGE_VERSION = 3
+// Version 4 adds complete manual milestone schedule windows and the resource
+// issue grain used by the secondary operating surfaces.
+const STORAGE_VERSION = 4
 
 export function usePersistentState<T>(key: string, initialValue: T) {
   const [value, setValue] = useState<T>(() => {

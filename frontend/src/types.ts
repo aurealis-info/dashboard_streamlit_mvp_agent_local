@@ -1,5 +1,6 @@
 export type MilestoneStatus = 'done' | 'in_progress' | 'not_started' | 'blocked'
 export type FieldType = 'text' | 'number' | 'date' | 'boolean' | 'enum'
+export type EditableEntityType = 'project' | 'resource'
 
 export const milestoneNames = [
   'Assessment',
@@ -17,6 +18,7 @@ export type ManualMilestoneName = Exclude<MilestoneName, 'Assessment'>
 
 export interface FieldDefinition {
   id: string
+  entityType: EditableEntityType
   label: string
   type: FieldType
   options?: string[]
@@ -94,4 +96,24 @@ export interface MilestoneUpdate {
   status: MilestoneStatus
   startedAt?: string
   completedAt?: string
+}
+
+/**
+ * Resource-grain read model from T_APA_RESOURCE_ISSUE_CURRENT plus the
+ * app-owned overlay. The demo derives these rows from the same stories shown
+ * in the project drilldown so both surfaces stay internally consistent.
+ */
+export interface ResourceIssue {
+  sprintIssueKey: string
+  issueKey: string
+  summary: string
+  status: Story['status']
+  assignee: string
+  sprintName: string
+  storyPoints: number
+  epicKey: string
+  epicName: string
+  projectKey: string
+  projectName: string
+  custom: Record<string, string | number | boolean>
 }

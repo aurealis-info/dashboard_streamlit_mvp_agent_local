@@ -6,11 +6,13 @@ The application is intentionally useful before the Flask/BigQuery service exists
 
 ## What is included
 
-- A governed project register with a pinned identity column and intentional horizontal scrolling.
+- A governed project register with a pinned identity column and intentional horizontal scrolling; this remains the default view.
+- A secondary milestone timeline driven only by the eight governed status/start/end records.
+- A Resources workspace that preserves the old prototype's useful assignee+sprint drilldown and exposes source issues beside resource-grain editable columns.
 - Architecture-backed columns for root issue key, PEATS number, account, manager, quoted price, budget code, CP4 name, reporter, source, and development status.
 - Exactly eight milestone columns: Assessment, ARP, Funding, Technical ARP, Data Eng, AA Dev, E2E Testing, and Deployment.
 - Sorting, text/number filters, resizing, pagination, and column movement through AG Grid Community.
-- A project drawer for source fields, linked issues, milestone updates, epic/story work, and workspace-owned fields.
+- A project drawer for source fields, linked issues, milestone updates, delivery-resource context, epic/story work, and workspace-owned fields.
 - First-click milestone dropdowns plus typed spreadsheet editors for every workspace-owned grid field.
 - Dynamic typed columns backed by the field-definition and EAV overlay contract.
 - Search by project, issue key, PEATS number, account, manager, reporter, and linked issue.
@@ -44,7 +46,7 @@ npm run build
 npm audit
 ```
 
-The tests cover source-identifier filtering, the locked milestone contract, dynamic field creation, direct grid dropdown editing, source-field drilldown, and manual-versus-automatic milestone editing. The production build emits static assets to `frontend/dist/`.
+The tests cover source-identifier filtering, the locked milestone contract, timeline drilldown, project and resource dynamic fields, direct grid dropdown editing, source-field drilldown, and manual-versus-automatic milestone editing. The production build emits static assets to `frontend/dist/`.
 
 ## Preview in Docker
 
@@ -68,6 +70,8 @@ Open [http://localhost:8080](http://localhost:8080); the health endpoint is `/he
 | Dynamic field definitions | `APA_FIELD_DEFINITIONS` | Admin-governed creation |
 | Dynamic project values | `APA_OVERRIDES` EAV rows | Editable by registered type |
 | Project epics and stories | `T_APA_PROJECT_EPIC_STORY_CURRENT` | Read only |
+| Sprint issues and assignment facts | `T_APA_RESOURCE_ISSUE_CURRENT` | Read only |
+| Dynamic resource values | `APA_OVERRIDES` EAV rows (`entity_type=resource`) | Editable by registered type |
 
 The guide does not define a separate PID field. The UI therefore exposes `ROOT_ISSUE_KEY` and `PEATS #` without relabeling either one. Add PID as a new source field only if the upstream mart contract confirms it is distinct.
 
@@ -82,6 +86,8 @@ The guide does not define a separate PID field. The UI therefore exposes `ROOT_I
 | `frontend/src/hooks/usePersistentState.ts` | Versioned, failure-tolerant demo persistence |
 | `frontend/src/config/workspaceFieldPolicy.ts` | Organization-approved portal-status dropdown vocabulary |
 | `frontend/src/components/ProjectGrid.tsx` | Enterprise project register and eight-milestone column group |
+| `frontend/src/components/ProjectTimeline.tsx` | Secondary schedule lens over milestone date boundaries |
+| `frontend/src/components/ResourceWorkspace.tsx` | Assignee workload master-detail and editable resource issues |
 | `frontend/src/components/ProjectDrawer.tsx` | Source, milestone, work, and workspace-field detail view |
 | `frontend/src/components/AddFieldModal.tsx` | Typed custom-field definition workflow |
 | `frontend/src/styles.css` | Neutral design tokens, application layout, states, and breakpoints |
@@ -97,7 +103,7 @@ Follow §18.1 of [architecture_guide.md](architecture_guide.md) in order:
 3. Load field definitions and serialize values by registered type.
 4. Implement append-only overrides with authenticated audit identity and version checks.
 5. Implement manual milestone writes; reject Assessment updates.
-6. Implement bounded epic/story reads by project key.
+6. Implement bounded epic/story reads by project key and resource reads by sprint/assignee.
 7. Add an HTTP implementation of `ProjectRepository`, including loading, failure, and `409` rollback UX.
 8. Build the frontend in the gateway container and let Flask serve `frontend/dist/` on the same origin.
 9. Run contract tests against dev BigQuery in an isolated override namespace before infrastructure changes.

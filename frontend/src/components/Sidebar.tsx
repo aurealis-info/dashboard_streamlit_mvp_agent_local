@@ -3,11 +3,14 @@ import { Icon } from './Icon'
 interface SidebarProps {
   open: boolean
   projectCount: number
+  resourceCount: number
+  activePage: 'projects' | 'resources'
   onClose: () => void
+  onNavigate: (page: 'projects' | 'resources') => void
   onReset: () => void
 }
 
-export function Sidebar({ open, projectCount, onClose, onReset }: SidebarProps) {
+export function Sidebar({ open, projectCount, resourceCount, activePage, onClose, onNavigate, onReset }: SidebarProps) {
   return (
     <>
       <button className={`sidebar-scrim ${open ? 'is-open' : ''}`} onClick={onClose} aria-label="Close navigation" />
@@ -18,23 +21,22 @@ export function Sidebar({ open, projectCount, onClose, onReset }: SidebarProps) 
         </div>
         <nav aria-label="Main navigation">
           <p className="nav-label">Workspace</p>
-          <button className="nav-item active" type="button" aria-current="page" onClick={onClose}>
+          <button className={`nav-item ${activePage === 'projects' ? 'active' : ''}`} type="button" aria-current={activePage === 'projects' ? 'page' : undefined} onClick={() => { onNavigate('projects'); onClose() }}>
             <Icon name="table" />
             <span>Projects</span>
             <em>{projectCount}</em>
           </button>
+          <button className={`nav-item ${activePage === 'resources' ? 'active' : ''}`} type="button" aria-current={activePage === 'resources' ? 'page' : undefined} onClick={() => { onNavigate('resources'); onClose() }}>
+            <Icon name="users" />
+            <span>Resources</span>
+            <em>{resourceCount}</em>
+          </button>
         </nav>
         <div className="sidebar-spacer" />
-        <div className="source-summary">
-          <span><Icon name="check" size={14} />JIRA connected</span>
-          <strong>Daily snapshot</strong>
-          <small>Source fields are read only</small>
-        </div>
         <button className="nav-item subtle" type="button" onClick={onReset}>
           <Icon name="reset" />
           <span>Reset demo data</span>
         </button>
-        <div className="profile"><span className="avatar">SC</span><span><strong>Simon C.</strong><small>Program manager</small></span></div>
       </aside>
     </>
   )

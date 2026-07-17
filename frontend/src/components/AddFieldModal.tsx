@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
-import type { FieldDefinition, FieldType } from '../types'
+import type { EditableEntityType, FieldDefinition, FieldType } from '../types'
 import { normalizeFieldId } from '../utils'
 import { Icon } from './Icon'
 import { SelectMenu } from './SelectMenu'
@@ -9,6 +9,8 @@ import type { SelectMenuOption } from './SelectMenu'
 interface AddFieldModalProps {
   open: boolean
   existingFields: FieldDefinition[]
+  contextLabel?: string
+  entityType?: EditableEntityType
   onClose: () => void
   onAdd: (field: FieldDefinition) => void
 }
@@ -21,7 +23,7 @@ const fieldTypes: SelectMenuOption<FieldType>[] = [
   { value: 'enum', label: 'Dropdown', description: 'Controlled options' },
 ]
 
-export function AddFieldModal({ open, existingFields, onClose, onAdd }: AddFieldModalProps) {
+export function AddFieldModal({ open, existingFields, contextLabel = 'Project register', entityType = 'project', onClose, onAdd }: AddFieldModalProps) {
   const [label, setLabel] = useState('')
   const [type, setType] = useState<FieldType>('text')
   const [options, setOptions] = useState('')
@@ -43,7 +45,7 @@ export function AddFieldModal({ open, existingFields, onClose, onAdd }: AddField
 
   const save = () => {
     if (!canSave) return
-    onAdd({ id, label: label.trim(), type, options: type === 'enum' ? optionList : undefined, visible: true, active: true })
+    onAdd({ id, entityType, label: label.trim(), type, options: type === 'enum' ? optionList : undefined, visible: true, active: true })
     setLabel('')
     setType('text')
     setOptions('')
@@ -54,7 +56,7 @@ export function AddFieldModal({ open, existingFields, onClose, onAdd }: AddField
     <div className="modal-layer" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose() }}>
       <form className="modal field-modal" role="dialog" aria-modal="true" aria-labelledby="field-title" onSubmit={(event) => { event.preventDefault(); save() }}>
         <header>
-          <div><span className="eyebrow">Project register</span><h2 id="field-title">Create editable column</h2><p>Add a workspace-owned column. JIRA source fields remain locked.</p></div>
+          <div><span className="eyebrow">{contextLabel}</span><h2 id="field-title">Create editable column</h2><p>Add a workspace-owned column. JIRA source fields remain locked.</p></div>
           <button className="icon-button" type="button" onClick={onClose} aria-label="Close"><Icon name="close" /></button>
         </header>
         <div className="form-stack">

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import App from './App'
+import { milestoneOverrideFieldNames } from './services/milestoneSchema'
 import { milestoneNames } from './types'
 
 function openProject(name = 'Invoice exception routing') {
@@ -24,7 +25,7 @@ describe('APA Tracker project register', () => {
     render(<App />)
     fireEvent.change(screen.getByLabelText('Search projects'), { target: { value: 'PEATS-10391' } })
 
-    await waitFor(() => expect(screen.getByText('1 project')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/1 of 8 projects/)).toBeInTheDocument())
   })
 
   it('locks the operating lifecycle to the eight architecture milestones', () => {
@@ -39,6 +40,24 @@ describe('APA Tracker project register', () => {
       'Deployment',
     ])
     expect(milestoneNames).not.toContain('Intake')
+    expect(milestoneOverrideFieldNames('Technical ARP')).toEqual([
+      'TARP.status',
+      'TARP.started_at',
+      'TARP.completed_at',
+    ])
+  })
+
+  it('keeps the register primary and opens schedule editing from the secondary timeline', () => {
+    render(<App />)
+
+    expect(screen.getByLabelText('APA project register')).toBeInTheDocument()
+    expect(screen.queryByRole('region', { name: 'Project timeline' })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Timeline' }))
+
+    expect(screen.getByRole('region', { name: 'Project timeline' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: /Claims intake automation, ARP:/i }))
+    const drawer = screen.getByRole('dialog', { name: 'Claims intake automation' })
+    expect(within(drawer).getByRole('tab', { name: 'Milestones · 8' })).toHaveAttribute('aria-selected', 'true')
   })
 
   it('creates a typed portal field without changing the source schema', () => {
@@ -84,11 +103,37 @@ describe('APA Tracker project register', () => {
     expect(within(drawer).queryByLabelText('Assessment status')).not.toBeInTheDocument()
     expect(within(drawer).queryByLabelText('Assessment start date')).not.toBeInTheDocument()
     const arpStartDate = within(drawer).getByLabelText('ARP start date')
-    fireEvent.change(arpStartDate, { target: { value: '2026-05-22' } })
-    expect(arpStartDate).toHaveValue('2026-05-22')
+    const arpEndDate = within(drawer).getByLabelText('ARP end date')
+    expect(arpStartDate).toHaveAttribute('max', '2026-06-12')
+    expect(arpEndDate).toHaveAttribute('min', '2026-06-08')
+    fireEvent.change(arpStartDate, { target: { value: '2026-06-09' } })
+    expect(arpStartDate).toHaveValue('2026-06-09')
+    expect(arpEndDate).toHaveAttribute('min', '2026-06-09')
     const fundingStatus = within(drawer).getByRole('combobox', { name: 'Funding status' })
     chooseOption(fundingStatus, 'Done')
     expect(fundingStatus).toHaveTextContent('Done')
     expect(screen.getByText('Funding saved')).toBeInTheDocument()
+  })
+
+  it('keeps the old assignee and sprint drilldown while adding resource overlay fields', () => {
+    render(<App />)
+    const navigation = screen.getByRole('navigation', { name: 'Main navigation' })
+    fireEvent.click(within(navigation).getByRole('button', { name: /Resources/i }))
+
+    expect(screen.getByRole('heading', { name: 'Resources', level: 1 })).toBeInTheDocument()
+    expect(screen.getByLabelText('Assignee workload')).toBeInTheDocument()
+    expect(screen.getByText('Resource issues')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Columns' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Create editable column' }))
+    const dialog = screen.getByRole('dialog', { name: 'Create editable column' })
+    expect(within(dialog).getByText('Resource issues')).toBeInTheDocument()
+    fireEvent.change(within(dialog).getByPlaceholderText('e.g. Governance decision'), { target: { value: 'Delivery note' } })
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Create column' }))
+
+    const input = screen.getByLabelText('Delivery note for APA-1902')
+    fireEvent.change(input, { target: { value: 'Needs pairing' } })
+    fireEvent.blur(input)
+    expect(screen.getByText('Resource workspace value saved')).toBeInTheDocument()
   })
 })
