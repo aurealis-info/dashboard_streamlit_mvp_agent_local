@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { portalStatusOptions } from '../config/workspaceFieldPolicy'
 import { useBodyScrollLock } from '../hooks/useBodyScrollLock'
-import type { ManualMilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
-import { formatDate, formatMoney, statusClass } from '../utils'
+import type { ManualMilestoneName, MilestoneUpdate, Project, ProjectUpdate } from '../types'
+import { formatMoney, statusClass } from '../utils'
 import { Icon } from './Icon'
+import { MilestoneSchedule } from './MilestoneSchedule'
 import { SelectMenu } from './SelectMenu'
-import type { SelectMenuOption } from './SelectMenu'
 
 interface ProjectDrawerProps {
   project: Project | null
@@ -16,13 +16,6 @@ interface ProjectDrawerProps {
 }
 
 export type ProjectDrawerTab = 'overview' | 'milestones' | 'work' | 'portal'
-const milestoneLabel: Record<MilestoneStatus, string> = { done: 'Done', in_progress: 'In progress', not_started: 'Not started', blocked: 'Blocked' }
-const editableStatuses: MilestoneStatus[] = ['not_started', 'in_progress', 'done', 'blocked']
-const milestoneStatusOptions: SelectMenuOption<MilestoneStatus>[] = editableStatuses.map((status) => ({
-  value: status,
-  label: milestoneLabel[status],
-  tone: status,
-}))
 
 export function ProjectDrawer({ project, initialTab = 'overview', onClose, onUpdate, onMilestoneUpdate }: ProjectDrawerProps) {
   const [tab, setTab] = useState<ProjectDrawerTab>(initialTab)
@@ -92,34 +85,7 @@ export function ProjectDrawer({ project, initialTab = 'overview', onClose, onUpd
             </section>
           </> : null}
 
-          {tab === 'milestones' ? <section className="record-section milestone-section">
-            <div className="section-heading"><div><h3>Milestone schedule</h3></div><small>Assessment is JIRA-derived</small></div>
-            <div className="milestone-table" role="table" aria-label="Project milestones">
-              <div className="milestone-table-head" role="row"><span>Milestone</span><span>Status</span><span>Start date</span><span>End date</span><span>Source</span></div>
-              {project.milestones.map((milestone) => {
-                const manualName = milestone.name as ManualMilestoneName
-                return <div className="milestone-table-row" role="row" key={milestone.name}>
-                  <strong>{milestone.name}</strong>
-                  {milestone.automatic
-                    ? <span className={`milestone-status ${milestone.status}`}><span className={`select-menu-status tone-${milestone.status}`}>{milestone.status === 'done' ? <Icon name="check" size={9} /> : null}</span>{milestoneLabel[milestone.status]}</span>
-                    : <SelectMenu
-                        ariaLabel={`${milestone.name} status`}
-                        value={milestone.status}
-                        options={milestoneStatusOptions}
-                        className="milestone-inline-select"
-                        onValueChange={(status) => onMilestoneUpdate(project.key, manualName, { status, startedAt: milestone.startedAt, completedAt: milestone.completedAt })}
-                      />}
-                  {milestone.automatic
-                    ? <span>{milestone.startedAt ? formatDate(milestone.startedAt) : '—'}</span>
-                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} start date</span><input type="date" value={milestone.startedAt ?? ''} max={milestone.completedAt} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: event.target.value || undefined, completedAt: milestone.completedAt })} /></label>}
-                  {milestone.automatic
-                    ? <span>{milestone.completedAt ? formatDate(milestone.completedAt) : '—'}{milestone.durationDays ? <small>{milestone.durationDays} days</small> : null}</span>
-                    : <label className="milestone-date-field"><span className="sr-only">{milestone.name} end date</span><input type="date" value={milestone.completedAt ?? ''} min={milestone.startedAt} onChange={(event) => onMilestoneUpdate(project.key, manualName, { status: milestone.status, startedAt: milestone.startedAt, completedAt: event.target.value || undefined })} /></label>}
-                  <span className="source-type">{milestone.automatic ? 'JIRA' : 'Manual'}</span>
-                </div>
-              })}
-            </div>
-          </section> : null}
+          {tab === 'milestones' ? <MilestoneSchedule projectKey={project.key} milestones={project.milestones} targetDate={project.targetDate} onMilestoneUpdate={onMilestoneUpdate} /> : null}
 
           {tab === 'work' ? <section className="record-section work-section">
             <div className="section-heading"><div><h3>Delivery resources</h3></div><small>JIRA story assignments</small></div>

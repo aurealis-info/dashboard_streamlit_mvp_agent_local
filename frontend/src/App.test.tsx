@@ -84,6 +84,20 @@ describe('APA Tracker project register', () => {
     expect(screen.queryByLabelText('Assessment status')).not.toBeInTheDocument()
   })
 
+  it('surfaces each stage date range in the register and opens its calendar editor', async () => {
+    render(<App />)
+
+    const arpDates = await waitFor(() => screen.getByRole('button', { name: 'Edit ARP dates for Claims intake automation' }))
+    expect(arpDates).toHaveTextContent('May 11 – May 15')
+    fireEvent.click(arpDates)
+
+    const drawer = screen.getByRole('dialog', { name: 'Claims intake automation' })
+    expect(within(drawer).getByRole('tab', { name: 'Milestones · 8' })).toHaveAttribute('aria-selected', 'true')
+    expect(within(drawer).getAllByLabelText(/start date$/)).toHaveLength(7)
+    expect(within(drawer).getAllByLabelText(/end date$/)).toHaveLength(7)
+    expect(within(drawer).getByText('7 of 7 stages dated')).toBeInTheDocument()
+  })
+
   it('opens a project record with architecture-backed source fields', () => {
     render(<App />)
     const drawer = openProject()
@@ -102,6 +116,7 @@ describe('APA Tracker project register', () => {
 
     expect(within(drawer).queryByLabelText('Assessment status')).not.toBeInTheDocument()
     expect(within(drawer).queryByLabelText('Assessment start date')).not.toBeInTheDocument()
+    expect(within(drawer).getByText('Assessment syncs from JIRA')).toBeInTheDocument()
     const arpStartDate = within(drawer).getByLabelText('ARP start date')
     const arpEndDate = within(drawer).getByLabelText('ARP end date')
     expect(arpStartDate).toHaveAttribute('max', '2026-06-12')

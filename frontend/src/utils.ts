@@ -12,6 +12,21 @@ export function formatDate(value: string) {
   return dateFormatter.format(new Date(`${value}T12:00:00`))
 }
 
+export function formatDateRange(start?: string, end?: string, emptyLabel = 'Set dates') {
+  if (start && end) return `${formatDate(start)} – ${formatDate(end)}`
+  if (start) return `Starts ${formatDate(start)}`
+  if (end) return `Ends ${formatDate(end)}`
+  return emptyLabel
+}
+
+export function dateRangeDays(start?: string, end?: string) {
+  if (!start || !end) return null
+  const startMs = Date.parse(`${start}T00:00:00Z`)
+  const endMs = Date.parse(`${end}T00:00:00Z`)
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return null
+  return Math.floor((endMs - startMs) / 86_400_000) + 1
+}
+
 export function statusClass(status: string) {
   return status.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 }

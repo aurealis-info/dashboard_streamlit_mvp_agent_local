@@ -18,7 +18,7 @@ import { AgGridReact } from 'ag-grid-react'
 import { portalStatusOptions } from '../config/workspaceFieldPolicy'
 import { milestoneNames } from '../types'
 import type { FieldDefinition, ManualMilestoneName, MilestoneName, MilestoneStatus, MilestoneUpdate, Project, ProjectUpdate } from '../types'
-import { formatDate, formatMoney } from '../utils'
+import { formatDate, formatDateRange, formatMoney } from '../utils'
 import { Icon } from './Icon'
 import { SelectMenu } from './SelectMenu'
 import type { SelectMenuOption } from './SelectMenu'
@@ -67,6 +67,7 @@ interface ProjectGridProps {
   projects: Project[]
   fields: FieldDefinition[]
   onSelect: (project: Project) => void
+  onScheduleSelect: (project: Project) => void
   onProjectChange: (key: string, update: ProjectUpdate) => void
   onMilestoneChange: (key: string, milestone: ManualMilestoneName, update: MilestoneUpdate) => void
   onFieldChange: (key: string, field: string, value: string | number | boolean) => void
@@ -87,32 +88,43 @@ function ManagerCell({ data }: ICellRendererParams<Project>) {
   return <span className="grid-manager"><span className="avatar">{data.managerInitials}</span><strong>{data.manager}</strong></span>
 }
 
-function MilestoneCell({ data, milestoneName, onMilestoneChange }: ICellRendererParams<Project> & { milestoneName: MilestoneName; onMilestoneChange: ProjectGridProps['onMilestoneChange'] }) {
+function MilestoneCell({ data, milestoneName, onMilestoneChange, onScheduleSelect }: ICellRendererParams<Project> & {
+  milestoneName: MilestoneName
+  onMilestoneChange: ProjectGridProps['onMilestoneChange']
+  onScheduleSelect: ProjectGridProps['onScheduleSelect']
+}) {
   if (!data) return null
   const milestone = data.milestones.find((item) => item.name === milestoneName)
   if (!milestone) return null
   if (!milestone.automatic && milestoneName !== 'Assessment') {
-    return (
+    return <div className="grid-milestone-editor">
       <SelectMenu
         ariaLabel={`${milestoneName} status`}
         value={milestone.status}
         options={milestoneStatusOptions}
         variant="cell"
+        className="milestone-grid-status"
         onValueChange={(status) => onMilestoneChange(data.key, milestoneName, {
           status,
           startedAt: milestone.startedAt,
           completedAt: milestone.completedAt,
         })}
       />
-    )
+      <button type="button" className={`grid-milestone-dates ${milestone.startedAt && milestone.completedAt ? '' : 'incomplete'}`} onClick={() => onScheduleSelect(data)} aria-label={`Edit ${milestoneName} dates for ${data.name}`}>
+        <Icon name="calendar" size={11} /><span>{formatDateRange(milestone.startedAt, milestone.completedAt)}</span>
+      </button>
+    </div>
   }
-  return (
+  return <div className="grid-milestone-readonly">
     <span className={`grid-milestone ${milestone.status}`} title={`${milestoneName} is derived from JIRA`}>
       <span className={`select-menu-status tone-${milestone.status}`}>{milestone.status === 'done' ? <Icon name="check" size={9} /> : null}</span>
       <span><strong>{milestoneLabels[milestone.status]}</strong>{milestone.durationDays ? <small>{milestone.durationDays} days</small> : <small>JIRA</small>}</span>
       <Icon name="lock" size={12} />
     </span>
-  )
+    <button type="button" className="grid-milestone-dates source" onClick={() => onScheduleSelect(data)} aria-label={`View ${milestoneName} dates for ${data.name}`}>
+      <Icon name="calendar" size={11} /><span>{formatDateRange(milestone.startedAt, milestone.completedAt, 'No JIRA dates')}</span>
+    </button>
+  </div>
 }
 
 function customFieldValue(field: FieldDefinition, project: Project) {
@@ -164,7 +176,7 @@ function PortalStatusCell({ data, onProjectChange }: ICellRendererParams<Project
   )
 }
 
-export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMilestoneChange, onFieldChange }: ProjectGridProps) {
+export function ProjectGrid({ projects, fields, onSelect, onScheduleSelect, onProjectChange, onMilestoneChange, onFieldChange }: ProjectGridProps) {
   const handleEditRequest = useCallback((event: CellEditRequestEvent<Project>) => {
     if (!event.data || event.newValue === event.oldValue) return
     const colId = event.column.getColId()
@@ -189,8 +201,8 @@ export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMil
         colId: milestoneColumnId(milestoneName),
         headerName: milestoneName,
         headerTooltip: automatic ? 'JIRA source · read only' : 'Workspace field · click to edit',
-        width: milestoneName === 'Technical ARP' ? 152 : 132,
-        minWidth: 124,
+        width: milestoneName === 'Technical ARP' ? 174 : 160,
+        minWidth: 148,
         sortable: false,
         filter: false,
         suppressHeaderMenuButton: true,
@@ -198,7 +210,7 @@ export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMil
         headerClass: automatic ? 'source-header' : 'workspace-header',
         cellClass: automatic ? 'source-cell' : 'workspace-cell dropdown-cell',
         cellRenderer: MilestoneCell,
-        cellRendererParams: { milestoneName, onMilestoneChange },
+        cellRendererParams: { milestoneName, onMilestoneChange, onScheduleSelect },
         valueGetter: ({ data }) => milestoneLabels[data?.milestones.find((item) => item.name === milestoneName)?.status ?? 'not_started'],
       }
     })
@@ -251,7 +263,7 @@ export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMil
         source({ field: 'sourceKey', headerName: 'Source', width: 112 }),
       ] },
     ]
-  }, [fields, onFieldChange, onMilestoneChange, onProjectChange, onSelect])
+  }, [fields, onFieldChange, onMilestoneChange, onProjectChange, onScheduleSelect, onSelect])
 
   const defaultColDef = useMemo<ColDef<Project>>(() => ({
     sortable: true,
@@ -272,7 +284,7 @@ export function ProjectGrid({ projects, fields, onSelect, onProjectChange, onMil
         readOnlyEdit
         singleClickEdit
         stopEditingWhenCellsLoseFocus
-        rowHeight={58}
+        rowHeight={72}
         headerHeight={42}
         groupHeaderHeight={34}
         pagination

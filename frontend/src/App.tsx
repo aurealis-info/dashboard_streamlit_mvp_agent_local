@@ -147,7 +147,7 @@ function App() {
               </header>
               <Toolbar search={search} onSearch={setSearch} manager={manager} managers={managers} onManager={setManager} account={account} accounts={accounts} onAccount={setAccount} fields={fields} onFieldVisibility={setFieldVisibility} onAddField={() => setFieldModalTarget('project')} showColumns={projectView === 'table'} />
               {filteredProjects.length ? projectView === 'table'
-                ? <ProjectGrid projects={filteredProjects} fields={visibleFields} onSelect={(project) => openProject(project)} onProjectChange={updateProject} onMilestoneChange={updateMilestone} onFieldChange={changeField} />
+                ? <ProjectGrid projects={filteredProjects} fields={visibleFields} onSelect={(project) => openProject(project)} onScheduleSelect={(project) => openProject(project, 'milestones')} onProjectChange={updateProject} onMilestoneChange={updateMilestone} onFieldChange={changeField} />
                 : <ProjectTimeline projects={filteredProjects} onSelect={(project) => openProject(project, 'milestones')} />
               : <div className="empty-state"><Icon name="search" /><h3>No projects match these filters</h3><p>Clear the search, account, or manager filter.</p><button className="button secondary" type="button" onClick={clearFilters}>Clear filters</button></div>}
             </> : <>

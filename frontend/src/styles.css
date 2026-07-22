@@ -199,6 +199,19 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .grid-milestone small { margin-top: 2px; color: #8b95a2; font-size: 8px; }
 .grid-milestone > svg { color: #929ba7; }
 .workspace-cell .grid-milestone > svg { color: #6e66d3; }
+.grid-milestone-editor, .grid-milestone-readonly { display: grid; width: 100%; height: 100%; min-width: 0; grid-template-rows: minmax(0, 1fr) 25px; }
+.milestone-grid-status.select-menu-trigger--cell { min-height: 0; border-bottom: 1px solid #e4e1fb; }
+.milestone-grid-status.select-menu-trigger--cell:focus-visible, .milestone-grid-status.select-menu-trigger--cell[data-state="open"] { z-index: 1; }
+.grid-milestone-readonly { height: 56px; }
+.grid-milestone-readonly .grid-milestone { padding-inline: 1px; }
+.grid-milestone-dates { display: flex; width: 100%; min-width: 0; height: 25px; align-items: center; gap: 5px; padding: 0 9px; overflow: hidden; color: #5b56a9; font-size: 8px; font-weight: 620; text-align: left; background: #f8f7ff; border: 0; }
+.grid-milestone-dates:hover { color: var(--indigo-dark); background: #eeecff; }
+.grid-milestone-dates:focus-visible { z-index: 2; box-shadow: inset 0 0 0 2px #8179e4; outline: 0; }
+.grid-milestone-dates svg { flex: 0 0 auto; }
+.grid-milestone-dates span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.grid-milestone-dates.incomplete { color: #8a5d28; background: #fff8ed; }
+.grid-milestone-dates.source { padding-inline: 1px; color: #788391; background: transparent; border-top: 1px solid #edf0f3; }
+.grid-milestone-dates.source:hover { color: #4d5967; background: #f5f7f9; }
 .empty-state { display: flex; min-height: 500px; flex-direction: column; align-items: center; justify-content: center; color: #8792a0; text-align: center; }
 .empty-state h3 { margin: 13px 0 5px; color: #344154; font-size: 14px; }
 .empty-state p { margin: 0 0 16px; font-size: 11px; }
@@ -353,19 +366,41 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .linked-issue-list em.blocked, .story > em.blocked { color: var(--red); background: var(--red-soft); }
 .linked-issue-list em.done, .story > em.done { color: var(--green); background: var(--green-soft); }
 .linked-issue-list > p { margin: 0; padding: 15px; color: #75808d; font-size: 10px; }
+.milestone-section-heading p { margin: 5px 0 0; color: #778392; font-size: 9px; }
+.milestone-section-heading .read-only-label { flex: 0 0 auto; }
+.schedule-context { display: grid; grid-template-columns: 1.25fr 1fr .8fr; margin-bottom: 12px; overflow: hidden; background: #fafbfc; border: 1px solid var(--line); border-radius: 5px; }
+.schedule-context > span { display: flex; min-width: 0; min-height: 49px; align-items: center; gap: 8px; padding: 8px 11px; border-right: 1px solid var(--line); }
+.schedule-context > span:last-child { border-right: 0; }
+.schedule-context > span > svg { flex: 0 0 auto; color: #5f59b3; }
+.schedule-context > span > span { display: flex; min-width: 0; flex-direction: column; }
+.schedule-context small { color: #7b8795; font-size: 8px; }
+.schedule-context strong { margin-top: 3px; overflow: hidden; color: #354253; font-size: 10px; font-weight: 670; text-overflow: ellipsis; white-space: nowrap; }
 .milestone-table { overflow: hidden; border: 1px solid var(--line); border-radius: 5px; }
-.milestone-table-head, .milestone-table-row { display: grid; grid-template-columns: minmax(130px, 1.25fr) 140px 125px 125px 65px; align-items: center; column-gap: 9px; padding: 0 11px; }
+.milestone-table-head, .milestone-table-row { display: grid; grid-template-columns: minmax(145px, 1.25fr) 140px 128px 128px 65px; align-items: center; column-gap: 9px; padding: 0 11px; }
 .milestone-table-head { min-height: 36px; color: #6c7887; font-size: 9px; font-weight: 720; letter-spacing: .055em; text-transform: uppercase; background: #f6f7f9; border-bottom: 1px solid var(--line); }
-.milestone-table-row { min-height: 52px; color: #4d5a69; font-size: 10px; border-bottom: 1px solid var(--line); }
+.milestone-table-row { min-height: 62px; color: #4d5a69; font-size: 10px; border-bottom: 1px solid var(--line); }
+.milestone-table-row.manual { background: #fff; }
+.milestone-table-row.automatic { background: #fbfcfd; }
 .milestone-table-row:last-child { border-bottom: 0; }
-.milestone-table-row > strong { color: #2e3a49; font-size: 11px; }
-.milestone-date-field input { width: 100%; height: 32px; padding: 0 7px; color: #445160; font-size: 10px; background: #fff; border: 1px solid var(--line-strong); border-radius: 5px; }
+.milestone-name-cell { display: grid; min-width: 0; grid-template-columns: 25px minmax(0, 1fr); align-items: center; gap: 8px; }
+.milestone-name-cell > span:last-child { display: flex; min-width: 0; flex-direction: column; }
+.milestone-name-cell strong { overflow: hidden; color: #2e3a49; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.milestone-name-cell small { margin-top: 3px; color: #89939f; font-size: 8px; }
+.milestone-order { display: grid; width: 23px; height: 23px; place-items: center; color: #737e8c; font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; font-size: 8px; font-weight: 700; background: #f1f3f5; border: 1px solid #e1e5e9; border-radius: 4px; }
+.milestone-table-row.manual .milestone-order { color: #544da6; background: #f4f2ff; border-color: #ddd9fa; }
+.milestone-date-field { position: relative; display: block; width: 100%; }
+.milestone-date-field > svg { position: absolute; top: 50%; left: 8px; z-index: 1; color: #716abf; pointer-events: none; transform: translateY(-50%); }
+.milestone-date-field input { width: 100%; height: 34px; padding: 0 5px 0 27px; color: #3d4a59; font-size: 9px; font-weight: 610; background: #fff; border: 1px solid var(--line-strong); border-radius: 5px; cursor: pointer; }
+.milestone-date-field.empty input { color: #8a5d28; background: #fffaf2; border-color: #e7c99e; }
 .milestone-date-field input:focus { border-color: #918aec; box-shadow: 0 0 0 3px rgba(79, 70, 229, .08); outline: 0; }
-.milestone-inline-select { height: 32px; font-size: 10px; }
-.milestone-table-row > span { display: flex; flex-direction: column; }
-.milestone-table-row small { margin-top: 2px; color: #89939f; font-size: 8px; }
+.milestone-inline-select { height: 34px; font-size: 10px; }
+.milestone-source-date { display: flex; height: 34px; align-items: center; gap: 6px; padding: 0 8px; color: #6f7b89; font-size: 9px; background: #f3f5f7; border: 1px solid #e2e6ea; border-radius: 5px; }
+.milestone-source-date svg { color: #8b95a1; }
 .milestone-status { display: flex !important; flex-direction: row !important; align-items: center; gap: 6px; font-size: 10px; font-weight: 650; }
-.source-type { color: #75818f; font-size: 9px; font-weight: 720; text-transform: uppercase; }
+.source-type { display: inline-flex; width: max-content; padding: 4px 6px; color: #645da9; font-size: 8px; font-weight: 750; text-transform: uppercase; background: #f1efff; border-radius: 4px; }
+.source-type.jira { color: #65717f; background: #edf0f3; }
+.schedule-footnote { display: flex; align-items: center; gap: 6px; margin: 10px 1px 0; color: #7a8694; font-size: 9px; }
+.schedule-footnote svg { flex: 0 0 auto; color: #8b95a1; }
 .project-resource-table { margin-bottom: 18px; overflow: hidden; border: 1px solid var(--line); border-radius: 5px; }
 .project-resource-head, .project-resource-row { display: grid; grid-template-columns: minmax(160px, 1.45fr) minmax(120px, 1.2fr) 55px 70px 70px; align-items: center; gap: 9px; padding: 0 11px; }
 .project-resource-head { min-height: 34px; color: #6c7887; font-size: 9px; font-weight: 720; letter-spacing: .05em; text-transform: uppercase; background: #f6f7f9; border-bottom: 1px solid var(--line); }
@@ -506,8 +541,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
   .source-field-grid > div { border-right: 0; }
   .linked-issue-list article { grid-template-columns: minmax(0, 1fr) 78px; }
   .linked-issue-list article > span:nth-child(2) { display: none; }
+  .schedule-context { grid-template-columns: 1fr; }
+  .schedule-context > span { min-height: 44px; border-right: 0; border-bottom: 1px solid var(--line); }
+  .schedule-context > span:last-child { border-bottom: 0; }
   .milestone-table { overflow-x: auto; }
-  .milestone-table-head, .milestone-table-row { min-width: 630px; }
+  .milestone-table-head, .milestone-table-row { min-width: 690px; }
   .project-resource-table { overflow-x: auto; }
   .project-resource-head, .project-resource-row { min-width: 610px; }
   .portal-form { grid-template-columns: 1fr; }
